@@ -1,5 +1,3 @@
-
-
 import { Route, Routes } from "react-router"
 import Navbar from "./components/Navbar"
 
