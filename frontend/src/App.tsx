@@ -1,16 +1,23 @@
-import { Route, Routes } from "react-router"
+import { Route, Routes } from "react-router-dom"
 import Navbar from "./components/Navbar"
+import { LoginForm } from "./pages/LoginForm";
+import { Toaster } from "sonner";
+import HomePage from "./pages/HomePage";
+import { SignupForm } from "./pages/SignupForm";
+import { AuthProvider } from "./lib/AuthContext";
 
 function App() {
   return (
-    <div>
+    <AuthProvider>
       <Navbar />
       <Routes>
-        <Route path="/" element={<div>Home Page</div>} />
+        <Route path="/" element={<HomePage />} />
+        <Route path="/login" element={<LoginForm />} />
+        <Route path="/signup" element={<SignupForm />} />
       </Routes>
-    </div>
-  )
-   
+      <Toaster />
+    </AuthProvider>
+  );
 }
 
-export default App
+export default App;
