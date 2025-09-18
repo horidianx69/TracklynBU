@@ -6,6 +6,7 @@ export interface User {
   email: string;
   name: string;
   image?: string | null;
+  role: string; // ✅ Added role to the User type
 }
 
 export interface Session {
@@ -15,8 +16,7 @@ export interface Session {
   userId: string;
   ipAddress?: string | null;
   userAgent?: string | null;
-  createdAt?: Date;
-  updatedAt?: Date;
+
 }
 
 interface AuthContextType {
@@ -25,7 +25,7 @@ interface AuthContextType {
   loading: boolean;
   setUser: React.Dispatch<React.SetStateAction<User | null>>;
   setSession: React.Dispatch<React.SetStateAction<Session | null>>;
-  refreshSession: () => Promise<void>;
+  refreshSession: () => Promise<User | null>; // ✅ Modified to return the user
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -35,16 +35,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
 
-  async function refreshSession() {
+  async function refreshSession(): Promise<User | null> {
     try {
-      const result = await authClient.getSession(); // fetch current session
-      console.log(result);
+      const result = await authClient.getSession();
       if (result.data) {
-        setUser(result.data.user);
+        setUser(result.data.user as User);
         setSession(result.data.session);
+        return result.data.user as User; // ✅ Return the user object
       } else {
         setUser(null);
         setSession(null);
+        return null; // ✅ Return null if no session
       }
     } finally {
       setLoading(false);

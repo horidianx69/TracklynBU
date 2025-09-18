@@ -1,92 +1,67 @@
 import { useState, useTransition } from "react";
+import { useNavigate } from "react-router-dom";
 import { authClient } from "../lib/auth-client";
 import { toast } from "sonner";
-import { GithubIcon, Loader2, Send } from "lucide-react";
-import { FcGoogle } from "react-icons/fc";
-import {
-  Card, CardContent, CardHeader, CardTitle, CardDescription
-} from "@/components/ui/card";
+import { Loader2, Send } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Link, useNavigate } from "react-router";
-import { useAuth } from "../lib/AuthContext";
+import { Link } from "react-router-dom";
+
 export function SignupForm() {
-  const navigate = useNavigate();
   const [email, setEmail] = useState("");
-    const { refreshSession } = useAuth();
   const [password, setPassword] = useState("");
-  const [isPendingGithub, startGithub] = useTransition();
-  const [isPendingGoogle, startGoogle] = useTransition();
+
   const [isPendingEmail, startEmail] = useTransition();
-
-  async function signUpWithGithub() {
-    startGithub(async () => {
-      await authClient.signIn.social({
-        provider: "github",
-        callbackURL: "http://localhost:5173/",
-
-        fetchOptions: {
-          onSuccess: async() =>{ toast.success("Signed up with GitHub!")
-             await refreshSession();
-          },
-          onError: () => {toast.error("GitHub signup failed")},
-        },
-      });
-    });
-  }
-
-  async function signUpWithGoogle() {
-    startGoogle(async () => {
-      await authClient.signIn.social({
-        provider: "google",
-        callbackURL: "http://localhost:5173/",
-        fetchOptions: {
-          onSuccess: async() =>{ toast.success("Signed up with Google!")
-             await refreshSession();
-          },
-          onError: () =>{ toast.error("Google signup failed")},
-        },
-      });
-    });
-  }
-
+  // ✅ Initialize useNavigate
+  const navigate = useNavigate();
   async function signUpWithEmail() {
     startEmail(async () => {
       await authClient.signUp.email(
-        { email, password, name: email.split("@")[0], callbackURL: "http://localhost:5173/" },
         {
-          onSuccess: async() => {
-            toast.success("Account created!");
-             await refreshSession();
-            navigate("/");
+          email,
+          password,
+          name: email.split("@")[0],
+          role: "student",
+        },
+        {
+          onSuccess: () => {
+            // ✅ Inform the user to verify their email
+            toast.info("Account created! Please check your email to verify your account.");
+             navigate("/verify-email");
           },
-          onError: () =>{ toast.error("Signup failed")},
+          onError: (data) => {
+            console.log(data.error)
+             switch (data.error.status) {
+              case 409: // Conflict
+                toast.error("A user with this email already exists.");
+                break;
+              case 400: // Bad Request (e.g., short password, invalid email)
+                // Use the specific message from the backend if available
+                toast.error(data.error.message || "Please check your email or password.");
+                break;
+              default:
+                toast.error(data.error.message || "An unexpected error occurred.");
+            }
+          },
         }
       );
     });
   }
 
   return (
-    <Card className="max-w-sm mx-auto mt-10">
+
+     <div className="flex-grow flex items-center justify-center">
+
+    <Card className="w-full max-w-sm ">
       <CardHeader>
-        <CardTitle className="text-xl">Create Account</CardTitle>
-        <CardDescription>Sign up using GitHub, Google, or your Email.</CardDescription>
+        <CardTitle className="text-xl">Create Student Account</CardTitle>
+        <CardDescription>
+          Use your official Bennett email or sign up with a password.
+        </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
-
-        <Button onClick={signUpWithGithub} disabled={isPendingGithub} variant="outline" className="flex gap-2">
-          {isPendingGithub ? <Loader2 className="w-4 h-4 animate-spin" /> : <GithubIcon className="w-4 h-4" />} GitHub
-        </Button>
-
-        <Button onClick={signUpWithGoogle} disabled={isPendingGoogle} variant="outline" className="flex gap-2">
-          {isPendingGoogle ? <Loader2 className="w-4 h-4 animate-spin" /> : <FcGoogle className="w-4 h-4" />} Google
-        </Button>
-
-        <div className="relative text-center text-sm after:absolute after:inset-0 after:top-1/2 after:flex after:items-center after:border-t">
-          <span className="relative z-10 bg-card px-2 text-muted-foreground">or continue with email</span>
-        </div>
-
         <div className="grid gap-3">
           <div className="grid gap-2">
             <Label>Email</Label>
@@ -96,16 +71,16 @@ export function SignupForm() {
             <Label>Password</Label>
             <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
           </div>
-
           <Button onClick={signUpWithEmail} disabled={isPendingEmail} className="flex gap-2">
-            {isPendingEmail ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />} Sign Up
+            {isPendingEmail ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+            Sign Up with Email
           </Button>
         </div>
         <p className="text-center text-sm mt-2">
-            Already have an account? <Link to="/login" className="hover:underline">Log In</Link>
+          Already have an account? <Link to="/login" className="hover:underline">Log In</Link>
         </p>
-
       </CardContent>
     </Card>
+     </div>
   );
 }
