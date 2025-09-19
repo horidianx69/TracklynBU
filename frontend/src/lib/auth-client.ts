@@ -7,6 +7,12 @@ export const authClient = createAuthClient({
       user: {
         role: {
           type: "string"
+        },
+        firstName: {
+          type: "string"
+        },
+        lastName: {
+          type: "string"  
         }
       }
   })],

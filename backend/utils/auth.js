@@ -41,9 +41,19 @@ export const auth = betterAuth({
     additionalFields: {
       role: {
         type: "enum",
-        enum: ["student", "teacher", "admin"],
+        enum: ["student", "faculty", "admin"],
         required: true,
         defaultValue: "student",
+        input: true,
+      },
+      firstName: {
+        type: String,
+        required: true,
+        input: true,
+      },
+      lastName: {
+        type: String,
+        required: true,
         input: true,
       },
     },
