@@ -17,10 +17,23 @@ const studentSchema = new mongoose.Schema({
     min: 1,
     max: 5
   },
-  school: {
-    type: String,
-    enum: ["SCSET", "SLLB"],
-  }, 
+  //adding group and batch so when faculty creates a class for a group or batch only relevant students can join
+  group:{
+    type: Number,
+    required: true,
+    min: 1,
+    max: 40
+  },
+  batch:{
+    type: Number,
+    required: true,
+    min: 1,
+    max: 100
+  },
+  // school: {
+  //   type: String,
+  //   enum: ["SCSET", "SLLB"],
+  // }, //removing school for now
   //be careful
   projectIds: {
     type: [mongoose.Schema.Types.ObjectId],
