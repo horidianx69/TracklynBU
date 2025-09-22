@@ -4,9 +4,13 @@ const cors = require("cors")
 const app = express();
 const PORT = process.env.PORT || 4000;
 connectDB()
+const authRoutes= require('./routes/authRoutes')
 
 app.use(express.json())
-app.use(cors)
+app.use(cors())
+
+app.use('/api/auth', authRoutes);
+
 app.get("/", (req, res) => {
   res.send("Hello World");
 });
