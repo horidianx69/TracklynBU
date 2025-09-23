@@ -1,7 +1,7 @@
 const express= require('express')
 const router = express.Router();
 const userController=require('../controller/userController');
-const {protect,restrictTo}= require("../middleware/authMid");
+const {protect,restrictTo}= require("../middleware/authMiddleware");
 
 const {registerUser,loginUser}= userController;
 

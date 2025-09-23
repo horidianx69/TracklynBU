@@ -1,27 +1,41 @@
-import User from '../models/userModel.js';
+const { User } = require("../model/User");
 const JWT_SECRET = process.env.JWT_SECRET;
-import jwt from 'jsonwebtoken';
+const jwt = require("jsonwebtoken");
 
 const protect = async (req, res, next) => {
   let token;
-  try{
-    if (req.headers.authorization && req.headers.authorization.startsWith("Bearer")){
+  try {
+    if (
+      req.headers.authorization &&
+      req.headers.authorization.startsWith("Bearer")
+    ) {
       const token = req.headers.authorization.split(" ")[1]; //Authorization
     }
-    if (!token){
-      return res.status(401).json({message: "No token found"});
+    if (!token) {
+      return res.status(401).json({ message: "No token found" });
     }
     const decoded = jwt.verify(token, JWT_SECRET);
     const user = await User.findById(decoded.id).select("-password");
-    if (!user){
-      return res.status(401).json({message: "User not found"});
+    if (!user) {
+      return res.status(401).json({ message: "User not found" });
     }
     req.user = user;
     next();
-  } catch (error){
+  } catch (error) {
     console.error("error while verifying token: ", error);
-    return res.status(401).json({message: "Not authorized, token failed"});
+    return res.status(401).json({ message: "Not authorized, token failed" });
   }
-}
+};
 
-module.exports = {protect};
+const restrictTo = (...roles) => {
+  return (req, res, next) => {
+    if (!roles.includes(req.user.role)) {
+      return res.status(401).json({
+        message: "Access denied: you do not have permission",
+      });
+    }
+    next();
+  };
+};
+
+module.exports = { protect, restrictTo };

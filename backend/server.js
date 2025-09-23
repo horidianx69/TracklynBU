@@ -5,6 +5,7 @@ const app = express();
 const PORT = process.env.PORT || 4000;
 connectDB()
 const authRoutes= require('./routes/authRoutes')
+const {protect} = require('./middleware/authMiddleware')
 
 app.use(express.json())
 app.use(cors())

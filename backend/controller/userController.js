@@ -1,6 +1,9 @@
 const User = require("../model/User");
+const Student = require("../model/Student");
 const jwt = require("jsonwebtoken");
 const { JWT_SECRET } = require("../utils/config");
+const { registerStudent } = require("./studentController");
+
 
 const createToken = (user) => {
   return jwt.sign(
@@ -16,18 +19,44 @@ const createToken = (user) => {
 
 exports.registerUser = async (req, res) => {
   try {
-    const { firstName, lastName, email, password, role } = req.body;
+    const { firstName, lastName, email, password, role, year, group, batch } = req.body;
+    //check if email is a bennett mail id
+    const bennettEmailRegex = /^[\w-\.]+@bennett\.edu\.in$/;
+    if(!bennettEmailRegex.test(email)){
+      return res.status(400).json({
+        message: "Only Bennett University emails are allowed"
+      })
+    }
     // user exist kar raha
     const userExists = await User.findOne({ email });
     if (userExists) {
       return res.status(400).json({ message: "User already exists" });
     }
+    
     //nahi toh create karo
     const newUser = new User({ firstName, lastName, email, password, role });
     await newUser.save();
-    res
-      .status(201)
-      .json({ message: "User registered successfully", user: newUser });
+
+    let studentData = null;
+
+    //create student
+    if (role === "student") {
+      enrollmentNumber = email.split('@')[0]; 
+      studentData = await registerStudent(newUser._id,enrollmentNumber, year, group, batch)
+    }
+
+    res.status(201).json({
+      message: "User registered successfully",
+      user: {
+        id: newUser._id,
+        firstName: newUser.firstName,
+        lastName: newUser.lastName,
+        email: newUser.email,
+        role: newUser.role,
+        createdAt: newUser.createdAt,
+      },
+      ...(studentData && { student : studentData})
+    });
   } catch (error) {
     console.error("Error registering user:", error);
     res.status(500).json({ message: "Error registering User" });
@@ -66,12 +95,12 @@ exports.loginUser = async (req, res) => {
         token,
       },
     });
-  }  catch (error) {
-        console.error(error);
-        res.status(500).json({
-            status: 'error',
-            message: 'Error while login',
-            error: error.message
-        })
-    }
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      status: "error",
+      message: "Error while login",
+      error: error.message,
+    });
+  }
 };
