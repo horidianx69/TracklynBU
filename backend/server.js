@@ -4,12 +4,25 @@ const cors = require("cors")
 const app = express();
 const PORT = process.env.PORT || 4000;
 connectDB()
+const authRoutes= require('./routes/authRoutes')
+const {protect} = require('./middleware/authMiddleware')
 
 app.use(express.json())
-app.use(cors)
+app.use(cors())
+
+app.use('/api/auth', authRoutes);
+
 app.get("/", (req, res) => {
   res.send("Hello World");
 });
+
+app.get("/me", protect, (req, res) => {
+  //call this endpoint with the token in the header to get current user details
+  res.json({
+    success: true,
+    user: req.user
+  })
+})
 
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 
