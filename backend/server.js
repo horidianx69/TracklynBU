@@ -1,31 +1,44 @@
-import express from "express";
-import connectDB from "./config/db.js";
 import cors from "cors";
-import { toNodeHandler,fromNodeHeaders } from "better-auth/node";
-import { auth } from "./utils/auth.js";
+import express from "express";
+import morgan from "morgan";
+import routes from "./routes/index.js";
+import connectDB from "./config/db.js";
 const app = express();
-const PORT = process.env.PORT || 4000;
 
 // connect to DB
 connectDB();
 app.use(
   cors({
-    origin: "http://localhost:5173", // change if frontend runs elsewhere
-    credentials: true,
+    origin: process.env.FRONTEND_URL,
+    methods: ["GET", "POST", "DELETE", "PUT"],
+    allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
-app.all("/api/auth/*splat", toNodeHandler(auth));
+app.use(morgan("dev"));
 app.use(express.json());
+const PORT = process.env.PORT || 5000;
 
-app.get("/", (req, res) => {
-  res.send("Hello World");
-});
-// Example protected route
-app.get("/api/me", async (req, res) => {
-  const session = await auth.api.getSession({
-    headers: fromNodeHeaders(req.headers),
+app.get("/", async (req, res) => {
+  res.status(200).json({
+    message: "Welcome to TaskHub API",
   });
-  if (!session) return res.status(401).json({ error: "Not authenticated" });
-  return res.json(session);
 });
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+// http:localhost:500/api-v1/
+app.use("/api-v1", routes);
+
+// error middleware
+app.use((err, req, res, next) => {
+  console.log(err.stack);
+  res.status(500).json({ message: "Internal server error" });
+});
+
+// not found middleware
+app.use((req, res) => {
+  res.status(404).json({
+    message: "Not found",
+  });
+});
+
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
