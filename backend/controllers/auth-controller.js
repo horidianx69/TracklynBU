@@ -13,8 +13,8 @@ const registerUser = async (req, res) => {
     console.log("Arcjet decision", decision.isDenied());
 
     if (decision.isDenied()) {
-      res.writeHead(403, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ message: "Invalid email address" }));
+      // res.writeHead(403, { "Content-Type": "application/json" });
+      return res.end(JSON.stringify({ message: "Invalid email address" }));
     }
 
     const existingUser = await User.findOne({ email });
@@ -60,14 +60,14 @@ const registerUser = async (req, res) => {
       });
     }
 
-    res.status(201).json({
+    return res.status(201).json({
       message:
         "Verification email sent to your email. Please check and verify your account.",
     });
   } catch (error) {
     console.log(error);
 
-    res.status(500).json({ message: "Internal server error" });
+    return res.status(500).json({ message: "Internal server error" });
   }
 };
 
