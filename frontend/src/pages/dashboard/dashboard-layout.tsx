@@ -47,6 +47,7 @@ const DashboardLayout = () => {
 
       <div className="flex flex-1 flex-col h-full">
         <Header
+          workspaces={workspaces ?? []}
           onWorkspaceSelected={handleWorkspaceSelected}
           selectedWorkspace={currentWorkspace}
           onCreateWorkspace={() => setIsCreatingWorkspace(true)}
