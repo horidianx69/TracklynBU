@@ -2,6 +2,7 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import type { Task } from "@/types";
 import { TaskCard } from "./TaskCard";
+import { useDroppable } from "@dnd-kit/core";
 
 interface TaskColumnProps {
   title: string;
@@ -16,6 +17,10 @@ export const TaskColumn = ({
   onTaskClick,
   isFullWidth = false,
 }: TaskColumnProps) => {
+  const { setNodeRef, isOver } = useDroppable({
+    id: title,
+  });
+
   return (
     <div
       className={
@@ -25,9 +30,11 @@ export const TaskColumn = ({
       }
     >
       <div
+        ref={setNodeRef}
         className={cn(
-          "space-y-4",
-          !isFullWidth ? "h-full" : "col-span-full mb-4"
+          "space-y-4 p-4 rounded-lg transition-colors",
+          !isFullWidth ? "h-full" : "col-span-full mb-4",
+          isOver && "bg-muted/50"
         )}
       >
         {!isFullWidth && (

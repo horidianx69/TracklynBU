@@ -7,10 +7,15 @@ import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { UseProjectQuery } from "@/hooks/use-project";
 import { getProjectProgress } from "@/lib";
-import type { Project, Task } from "@/types";
+import type { Project, Task, TaskStatus } from "@/types";
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import { TaskColumn } from "./components/TaskColumn";
+import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors, type DragEndEvent, type DragStartEvent } from "@dnd-kit/core";
+import { TaskCard } from "./components/TaskCard";
+import { useUpdateTaskStatusMutation } from "@/hooks/use-task";
+import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 
 const ProjectDetails = () => {
   const { projectId, workspaceId } = useParams<{
@@ -18,8 +23,20 @@ const ProjectDetails = () => {
     workspaceId: string;
   }>();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const { mutate } = useUpdateTaskStatusMutation();
 
   const [isCreateTask, setIsCreateTask] = useState(false);
+  const [activeTask, setActiveTask] = useState<Task | null>(null);
+
+  // Configure drag activation - requires 8px movement before drag starts
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8, // Must drag 8 pixels before drag activates
+      },
+    })
+  );
 
   const { data, isLoading } = UseProjectQuery(projectId!) as {
     data: {
@@ -43,9 +60,78 @@ const ProjectDetails = () => {
     navigate(`/workspaces/${workspaceId}/projects/${projectId}/tasks/${taskId}`);
   };
 
+  const handleDragStart = (event: DragStartEvent) => {
+    const task = tasks.find((t) => t._id === event.active.id);
+    setActiveTask(task || null);
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    setActiveTask(null);
+
+    if (!over) return;
+
+    const taskId = active.id as string;
+    const newStatus = over.id as TaskStatus;
+    const task = tasks.find((t) => t._id === taskId);
+
+    if (!task || task.status === newStatus) return;
+
+    const projectIdValue = typeof task.project === "string" ? task.project : task.project._id;
+    const queryKey = ["project", projectIdValue];
+
+    // Get previous data for rollback
+    const previousData = queryClient.getQueryData(queryKey) as
+      | { tasks: Task[]; project: Project }
+      | undefined;
+
+    // Optimistic Update
+    if (previousData) {
+      const updatedTasks = previousData.tasks.map((t) =>
+        t._id === taskId ? { ...t, status: newStatus } : t
+      );
+
+      queryClient.setQueryData(queryKey, {
+        ...previousData,
+        tasks: [...updatedTasks],
+      });
+    }
+
+    mutate(
+      { taskId, status: newStatus, projectId: projectIdValue },
+      {
+        onSuccess: (updatedTaskFromServer) => {
+          toast.success(`Task moved to ${newStatus}`);
+
+          queryClient.setQueryData(queryKey, (old: any) => {
+            if (!old) return old;
+
+            const updatedTasks = old.tasks.map((t: Task) =>
+              t._id === taskId ? { ...t, ...updatedTaskFromServer } : t
+            );
+
+            return {
+              ...old,
+              tasks: [...updatedTasks],
+            };
+          });
+          queryClient.invalidateQueries({ queryKey: queryKey });
+        },
+        onError: (error: any) => {
+          toast.error(error?.response?.data?.message || "Failed to move task");
+
+          if (previousData) {
+            queryClient.setQueryData(queryKey, previousData);
+          }
+        },
+      }
+    );
+  };
+
   return (
-    <div className="space-y-8">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+      <div className="space-y-8">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <BackButton />
           <div className="flex items-center gap-3">
@@ -155,14 +241,20 @@ const ProjectDetails = () => {
         </Tabs>
       </div>
 
-      {/* create task dialog */}
-      <CreateTaskDialog
-        open={isCreateTask}
-        onOpenChange={setIsCreateTask}
-        projectId={projectId!}
-        projectMembers={project.members as any}
-      />
-    </div>
+        {/* create task dialog */}
+        <CreateTaskDialog
+          open={isCreateTask}
+          onOpenChange={setIsCreateTask}
+          projectId={projectId!}
+          projectMembers={project.members as any}
+        />
+      </div>
+
+      {/* Drag Overlay */}
+      <DragOverlay>
+        {activeTask ? <TaskCard task={activeTask} onClick={() => {}} /> : null}
+      </DragOverlay>
+    </DndContext>
   );
 };
 

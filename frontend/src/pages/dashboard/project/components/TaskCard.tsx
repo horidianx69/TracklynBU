@@ -8,6 +8,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { AlertCircle, Calendar, CheckCircle, Clock } from "lucide-react";
 import { toast } from "sonner";
+import { useDraggable } from "@dnd-kit/core";
+import { CSS } from "@dnd-kit/utilities";
 
 interface TaskCardProps {
   task: Task;
@@ -15,10 +17,24 @@ interface TaskCardProps {
 }
 
 export const TaskCard = ({ task, onClick }: TaskCardProps) => {
+  // console.log("Task:", task);
   const queryClient = useQueryClient();
   const { mutate, isPending } = useUpdateTaskStatusMutation();
 
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: task._id,
+    data: {
+      task,
+    },
+  });
+
+  const style = {
+    transform: CSS.Translate.toString(transform),
+    opacity: isDragging ? 0.5 : 1,
+  };
+
   const handleStatusChange = (newStatus: "To Do" | "In Progress" | "Done") => {
+    console.log("Changing status to:", newStatus);
     if (!task?._id) return;
 
     const projectId = typeof task.project === "string" ? task.project : task.project._id;
@@ -78,11 +94,15 @@ export const TaskCard = ({ task, onClick }: TaskCardProps) => {
 
   return (
     <Card
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      {...listeners}
       onClick={(e) => {
         if ((e.target as HTMLElement).closest("button")) return;
         onClick();
       }}
-      className="cursor-pointer hover:shadow-md transition-all duration-300 hover:-translate-y-1"
+      className="cursor-grab active:cursor-grabbing hover:shadow-md transition-all duration-300"
     >
       <CardHeader>
         <div className="flex items-center justify-between">
@@ -170,7 +190,7 @@ export const TaskCard = ({ task, onClick }: TaskCardProps) => {
                     title={member.name}
                   >
                     <AvatarImage src={member.profilePicture} />
-                    <AvatarFallback>{member.name.charAt(0)}</AvatarFallback>
+                    {member.name ? <AvatarFallback>{member.name.charAt(0)}</AvatarFallback> : null}
                   </Avatar>
                 ))}
                 {task.assignees.length > 5 && (
