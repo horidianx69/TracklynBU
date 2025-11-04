@@ -12,36 +12,33 @@ import {
   DropdownMenuGroup,
 } from "../ui/dropdown-menu";
 import { Avatar, AvatarImage, AvatarFallback } from "../ui/avatar";
-import { Link, useLoaderData, useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { WorkspaceAvatar } from "../workspace/workspace-avatar";
 
 interface HeaderProps {
+  workspaces: Workspace[];                // 🧠 Added this prop
   onWorkspaceSelected: (workspace: Workspace) => void;
   selectedWorkspace: Workspace | null;
   onCreateWorkspace: () => void;
 }
 
 export const Header = ({
+  workspaces,
   onWorkspaceSelected,
   selectedWorkspace,
   onCreateWorkspace,
 }: HeaderProps) => {
   const navigate = useNavigate();
-
   const { user, logout } = useAuth();
-  const { workspaces } = useLoaderData() as { workspaces: Workspace[] };
   const isOnWorkspacePage = useLocation().pathname.includes("/workspace");
 
   const handleOnClick = (workspace: Workspace) => {
     onWorkspaceSelected(workspace);
-    const location = window.location;
 
     if (isOnWorkspacePage) {
       navigate(`/workspaces/${workspace._id}`);
     } else {
-      const basePath = location.pathname;
-
-      navigate(`${basePath}?workspaceId=${workspace._id}`);
+      navigate(`?workspaceId=${workspace._id}`);
     }
   };
 
@@ -59,7 +56,9 @@ export const Header = ({
                       name={selectedWorkspace.name}
                     />
                   )}
-                  <span className="font-medium">{selectedWorkspace?.name}</span>
+                  <span className="font-medium">
+                    {selectedWorkspace?.name}
+                  </span>
                 </>
               ) : (
                 <span className="font-medium">Select Workspace</span>
@@ -73,10 +72,7 @@ export const Header = ({
 
             <DropdownMenuGroup>
               {workspaces.map((ws) => (
-                <DropdownMenuItem
-                  key={ws._id}
-                  onClick={() => handleOnClick(ws)}
-                >
+                <DropdownMenuItem key={ws._id} onClick={() => handleOnClick(ws)}>
                   {ws.color && (
                     <WorkspaceAvatar color={ws.color} name={ws.name} />
                   )}
@@ -126,3 +122,5 @@ export const Header = ({
     </div>
   );
 };
+
+export default Header;

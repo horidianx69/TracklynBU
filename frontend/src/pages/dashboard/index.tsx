@@ -19,7 +19,11 @@ const Dashboard = () => {
   const [searchParams] = useSearchParams();
   const workspaceId = searchParams.get("workspaceId");
 
-  const { data, isPending } = useGetWorkspaceStatsQuery(workspaceId!) as {
+  const shouldFetch = Boolean(workspaceId);
+
+  const { data, isPending } = useGetWorkspaceStatsQuery(workspaceId!, {
+    enabled: shouldFetch, // ✅ Only fetch if workspaceId exists
+  }) as {
     data: {
       stats: StatsCardProps;
       taskTrendsData: TaskTrendsData[];
@@ -32,10 +36,23 @@ const Dashboard = () => {
     isPending: boolean;
   };
 
-  if (isPending) {
+  // 🧠 Handle when no workspace is selected
+  if (!shouldFetch) {
     return (
-      <div>
-        <Loader />
+      <div className="flex items-center justify-center h-full text-gray-500">
+        <p>Select a workspace to view its dashboard</p>
+      </div>
+    );
+  }
+
+  if (isPending) {
+    return <Loader />;
+  }
+
+  if (!data) {
+    return (
+      <div className="flex items-center justify-center h-full text-gray-500">
+        <p>No data available for this workspace.</p>
       </div>
     );
   }
@@ -65,3 +82,4 @@ const Dashboard = () => {
 };
 
 export default Dashboard;
+
