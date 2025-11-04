@@ -44,18 +44,40 @@ export const useUpdateTaskTitleMutation = () => {
 export const useUpdateTaskStatusMutation = () => {
   const queryClient = useQueryClient();
 
-  return useMutation({
-    mutationFn: (data: { taskId: string; status: TaskStatus }) =>
+  // return useMutation({
+  //   mutationFn: (data: { taskId: string; status: TaskStatus }) =>
+  //     updateData(`/tasks/${data.taskId}/status`, { status: data.status }),
+  //   onSuccess: (data: any) => {
+  //     queryClient.invalidateQueries({
+  //       queryKey: ["task", data._id],
+  //     });
+
+  //     queryClient.invalidateQueries({
+  //       queryKey: ["task-activity", data._id],
+  //     });
+  //   },
+  // });
+    return useMutation({
+    mutationFn: (data: { taskId: string; status: TaskStatus; projectId: string }) =>
       updateData(`/tasks/${data.taskId}/status`, { status: data.status }),
-    onSuccess: (data: any) => {
+    onSuccess: (data: any, variables) => {
+      // Invalidate individual task data (if queried separately)
       queryClient.invalidateQueries({
-        queryKey: ["task", data._id],
+        queryKey: ["task", variables.taskId],
       });
+
+      // Invalidate the project tasks list so UI refreshes
       queryClient.invalidateQueries({
-        queryKey: ["task-activity", data._id],
+        queryKey: ["project", variables.projectId],
+      });
+
+      // Invalidate task activity if needed
+      queryClient.invalidateQueries({
+        queryKey: ["task-activity", variables.taskId],
       });
     },
   });
+
 };
 
 export const useUpdateTaskDescriptionMutation = () => {
