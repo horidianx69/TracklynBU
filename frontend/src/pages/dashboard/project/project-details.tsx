@@ -241,7 +241,7 @@ const TaskColumn = ({
             ))
           )}
         </div>
-      </div>s
+      </div>
     </div>
   );
 };
