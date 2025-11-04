@@ -1,0 +1,70 @@
+import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
+import type { Task } from "@/types";
+import { TaskCard } from "./TaskCard";
+import { useDroppable } from "@dnd-kit/core";
+
+interface TaskColumnProps {
+  title: string;
+  tasks: Task[];
+  onTaskClick: (taskId: string) => void;
+  isFullWidth?: boolean;
+}
+
+export const TaskColumn = ({
+  title,
+  tasks,
+  onTaskClick,
+  isFullWidth = false,
+}: TaskColumnProps) => {
+  const { setNodeRef, isOver } = useDroppable({
+    id: title,
+  });
+
+  return (
+    <div
+      className={
+        isFullWidth
+          ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
+          : ""
+      }
+    >
+      <div
+        ref={setNodeRef}
+        className={cn(
+          "space-y-4 p-4 rounded-lg transition-colors",
+          !isFullWidth ? "h-full" : "col-span-full mb-4",
+          isOver && "bg-muted/50"
+        )}
+      >
+        {!isFullWidth && (
+          <div className="flex items-center justify-between">
+            <h1 className="font-medium">{title}</h1>
+            <Badge variant="outline">{tasks.length}</Badge>
+          </div>
+        )}
+
+        <div
+          className={cn(
+            "space-y-3",
+            isFullWidth && "grid grid-cols-2 lg:grid-cols-3 gap-4"
+          )}
+        >
+          {tasks.length === 0 ? (
+            <div className="text-center text-sm text-muted-foreground">
+              No tasks yet
+            </div>
+          ) : (
+            tasks.map((task) => (
+              <TaskCard
+                key={task._id}
+                task={task}
+                onClick={() => onTaskClick(task._id)}
+              />
+            ))
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
