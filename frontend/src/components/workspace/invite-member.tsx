@@ -9,10 +9,11 @@ import { Form, FormControl, FormField, FormItem, FormLabel } from "../ui/form";
 import { Input } from "../ui/input";
 import { cn } from "@/lib/utils";
 import { Button } from "../ui/button";
-import { Check, Copy, Mail } from "lucide-react";
+import { Check, Copy, Download, Mail } from "lucide-react";
 import { Label } from "../ui/label";
 import { useInviteMemberMutation } from "@/hooks/use-workspace";
 import { toast } from "sonner";
+import QRCode from "react-qr-code";
 
 interface InviteMemberDialogProps {
   isOpen: boolean;
@@ -74,6 +75,34 @@ export const InviteMemberDialog = ({
       setLinkCopied(false);
     }, 3000);
   };
+
+  const handleDownloadQRCode = () => {
+    const svg = document.getElementById("qr-code-svg");
+    if (!svg) return;
+
+    const svgData = new XMLSerializer().serializeToString(svg);
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+    const img = new Image();
+
+    img.onload = () => {
+      canvas.width = img.width;
+      canvas.height = img.height;
+      ctx?.drawImage(img, 0, 0);
+      const pngFile = canvas.toDataURL("image/png");
+
+      const downloadLink = document.createElement("a");
+      downloadLink.download = `workspace-invite-${workspaceId}.png`;
+      downloadLink.href = pngFile;
+      downloadLink.click();
+
+      toast.success("QR Code downloaded successfully");
+    };
+
+    img.src = "data:image/svg+xml;base64," + btoa(svgData);
+  };
+
+  const inviteLink = `${window.location.origin}/workspace-invite/${workspaceId}`;
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -171,14 +200,35 @@ export const InviteMemberDialog = ({
           </TabsContent>
 
           <TabsContent value="link">
-            <div className="grid gap-4">
-              <div className="grid gap-2">
-                <Label>Share this link to invite people</Label>
-                <div className="flex items-center space-x-2">
-                  <Input
-                    readOnly
-                    value={`${window.location.origin}/workspace-invite/${workspaceId}`}
+            <div className="grid gap-6">
+              <div className="flex flex-col items-center gap-4 p-6 bg-muted/30 rounded-lg">
+                <div className="bg-white p-4 rounded-lg shadow-sm">
+                  <QRCode
+                    id="qr-code-svg"
+                    value={inviteLink}
+                    size={200}
+                    level="H"
                   />
+                </div>
+                <p className="text-sm text-muted-foreground text-center">
+                  Scan with your phone camera to join
+                </p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleDownloadQRCode}
+                  disabled={isPending}
+                >
+                  <Download className="mr-2 h-4 w-4" />
+                  Download QR Code
+                </Button>
+              </div>
+
+              {/* Link Section */}
+              <div className="grid gap-2">
+                <Label>Or share this link</Label>
+                <div className="flex items-center space-x-2">
+                  <Input readOnly value={inviteLink} />
                   <Button onClick={handleCopyInviteLink} disabled={isPending}>
                     {linkCopied ? (
                       <>
@@ -194,6 +244,7 @@ export const InviteMemberDialog = ({
                   </Button>
                 </div>
               </div>
+
               <p className="text-sm text-muted-foreground">
                 Anyone with the link can join this workspace
               </p>
