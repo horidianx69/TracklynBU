@@ -102,7 +102,7 @@ export const TaskCard = ({ task, onClick }: TaskCardProps) => {
         if ((e.target as HTMLElement).closest("button")) return;
         onClick();
       }}
-      className="cursor-grab active:cursor-grabbing hover:shadow-md transition-all duration-300"
+      className="cursor-grab active:cursor-grabbing hover:shadow-md transition-all duration-300 gap-2 py-4"
     >
       <CardHeader>
         <div className="flex items-center justify-between">
@@ -170,7 +170,7 @@ export const TaskCard = ({ task, onClick }: TaskCardProps) => {
         </div>
       </CardHeader>
 
-      <CardContent>
+      <CardContent className="">
         <h4 className="font-medium mb-2">{task.title}</h4>
 
         {task.description && (
@@ -216,6 +216,8 @@ export const TaskCard = ({ task, onClick }: TaskCardProps) => {
             {task.subtasks.length} subtasks
           </div>
         )}
+
+        <div className="text-center text-muted-foreground text-sm pb-0">Click to Edit</div>
       </CardContent>
     </Card>
   );
