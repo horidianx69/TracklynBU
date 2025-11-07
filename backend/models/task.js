@@ -25,6 +25,7 @@ const taskSchema = new Schema(
     completedAt: { type: Date },
     estimatedHours: { type: Number, min: 0 },
     actualHours: { type: Number, min: 0 },
+    marks: { type: Number, min: 0, max: 100, default: 0 },
     tags: [{ type: String }],
     subtasks: [
       {

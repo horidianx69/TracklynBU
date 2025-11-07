@@ -2,7 +2,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { useUpdateTaskStatusMutation } from "@/hooks/use-task";
+import { useUpdateTaskStatusMutation, useUpdateTaskMarksMutation } from "@/hooks/use-task";
 import type { Project, Task } from "@/types";
 import { useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
@@ -10,6 +10,7 @@ import { AlertCircle, Calendar, CheckCircle, Clock } from "lucide-react";
 import { toast } from "sonner";
 import { useDraggable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
+import { useState } from "react";
 
 interface TaskCardProps {
   task: Task;
@@ -20,6 +21,65 @@ export const TaskCard = ({ task, onClick }: TaskCardProps) => {
   // console.log("Task:", task);
   const queryClient = useQueryClient();
   const { mutate, isPending } = useUpdateTaskStatusMutation();
+  const { mutate: updateMarks } = useUpdateTaskMarksMutation();
+  const [marks, setMarks] = useState<string>(String(task.marks ?? 0));
+
+  const handleMarksChange = (newMarks: string) => {
+    console.log("Handling marks change:", newMarks);
+    
+    if (newMarks === "") {
+      setMarks("");
+      return;
+    }
+    const numericOnly = newMarks.replace(/[^0-9]/g, "");
+    const withoutLeadingZeros = numericOnly.replace(/^0+/, "") || "0";
+    const numValue = Number(withoutLeadingZeros);
+    if (numValue > 100) {
+      toast.error("Maximum marks is 100");
+      return;
+    }
+    setMarks(withoutLeadingZeros);
+    
+    console.log("Marks updated:", {
+      taskId: task._id,
+      taskTitle: task.title,
+      newMarks: withoutLeadingZeros,
+      oldMarks: marks,
+      numericValue: numValue
+    });
+  };
+
+  const handleMarksBlur = () => {
+    if (marks === "") {
+      setMarks("0");
+    }
+    
+    const numericMarks = Number(marks || "0");
+    const projectId = typeof task.project === "string" ? task.project : task.project._id;
+    
+    // Only save if marks changed
+    if (numericMarks !== (task.marks ?? 0)) {
+      console.log("Saving marks to backend:", numericMarks);
+      
+      updateMarks(
+        { 
+          taskId: task._id, 
+          marks: numericMarks,
+          projectId 
+        },
+        {
+          onSuccess: () => {
+            toast.success(`Marks updated to ${numericMarks}`);
+          },
+          onError: (error: any) => {
+            toast.error(error?.response?.data?.message || "Failed to update marks");
+            // Rollback to original value
+            setMarks(String(task.marks ?? 0));
+          },
+        }
+      );
+    }
+  };
 
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: task._id,
@@ -217,7 +277,28 @@ export const TaskCard = ({ task, onClick }: TaskCardProps) => {
           </div>
         )}
 
-        <div className="text-center text-muted-foreground text-sm pb-0">Click to Edit</div>
+        <div className="flex justify-between items-center pt-2">
+          <div className="text-xs text-muted-foreground">Click to Edit</div>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">Total marks:</span>
+            {/* later add logic so this is only editable by owner of the workspace */}
+            <input
+              type="number"
+              value={marks}
+              onChange={(e) => {
+                handleMarksChange(e.target.value)
+              }}
+              onBlur={handleMarksBlur}
+              onClick={(e) => e.stopPropagation()}
+              onMouseDown={(e) => e.stopPropagation()}
+              onFocus={(e) => e.target.select()}
+              placeholder="0"
+              min="0"
+              max="100"
+              className="w-16 px-2 py-1 bg-background border border-blue-500/50 hover:border-blue-500 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded text-sm font-bold text-blue-400 text-center transition-colors outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+            />
+          </div>
+        </div>
       </CardContent>
     </Card>
   );

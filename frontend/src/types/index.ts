@@ -80,6 +80,7 @@ export interface Task {
   subtasks?: Subtask[];
   watchers?: User[];
   attachments?: Attachment[];
+  marks?: number;
 }
 
 export interface Attachment {
