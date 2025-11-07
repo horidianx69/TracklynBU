@@ -61,6 +61,25 @@ export const TaskCard = ({ task, onClick }: TaskCardProps) => {
     if (numericMarks !== (task.marks ?? 0)) {
       console.log("Saving marks to backend:", numericMarks);
       
+      const queryKey = ["project", projectId];
+      
+      // get previous data for rollback
+      const previousData = queryClient.getQueryData(queryKey) as
+        | { tasks: Task[]; project: Project }
+        | undefined;
+
+      // optimistic Update i.e update cache immediately
+      if (previousData) {
+        const updatedTasks = previousData.tasks.map((t) =>
+          t._id === task._id ? { ...t, marks: numericMarks } : t
+        );
+
+        queryClient.setQueryData(queryKey, {
+          ...previousData,
+          tasks: [...updatedTasks],
+        });
+      }
+      
       updateMarks(
         { 
           taskId: task._id, 
@@ -68,13 +87,36 @@ export const TaskCard = ({ task, onClick }: TaskCardProps) => {
           projectId 
         },
         {
-          onSuccess: () => {
+          onSuccess: (updatedTaskFromServer) => {
             toast.success(`Marks updated to ${numericMarks}`);
+            
+            // Update cache with real server data
+            queryClient.setQueryData(queryKey, (old: any) => {
+              if (!old) return old;
+
+              const updatedTasks = old.tasks.map((t: Task) =>
+                t._id === task._id
+                  ? { ...t, ...updatedTaskFromServer } // merge real data
+                  : t
+              );
+
+              return {
+                ...old,
+                tasks: [...updatedTasks],
+              };
+            });
+            queryClient.invalidateQueries({ queryKey: queryKey });
           },
           onError: (error: any) => {
             toast.error(error?.response?.data?.message || "Failed to update marks");
-            // Rollback to original value
+            
+            // Rollback to original value in local state
             setMarks(String(task.marks ?? 0));
+            
+            // Rollback cache to previous data
+            if (previousData) {
+              queryClient.setQueryData(queryKey, previousData);
+            }
           },
         }
       );
