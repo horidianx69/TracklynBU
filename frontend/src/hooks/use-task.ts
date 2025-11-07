@@ -261,3 +261,25 @@ export const useUpdateTaskMarksMutation = () => {
     },
   });
 };
+
+export const useUpdateTaskScoreMutation = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (data: { taskId: string; score: number; projectId: string }) =>
+      updateData(`/tasks/${data.taskId}/score`, { score: data.score }),
+    onSuccess: (_data: any, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: ["task", variables.taskId],
+      });
+
+      queryClient.invalidateQueries({
+        queryKey: ["project", variables.projectId],
+      });
+
+      queryClient.invalidateQueries({
+        queryKey: ["task-activity", variables.taskId],
+      });
+    },
+  });
+};

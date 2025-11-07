@@ -2,7 +2,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { useUpdateTaskStatusMutation, useUpdateTaskMarksMutation } from "@/hooks/use-task";
+import { useUpdateTaskStatusMutation, useUpdateTaskMarksMutation, useUpdateTaskScoreMutation } from "@/hooks/use-task";
 import type { Project, Task } from "@/types";
 import { useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
@@ -22,7 +22,9 @@ export const TaskCard = ({ task, onClick }: TaskCardProps) => {
   const queryClient = useQueryClient();
   const { mutate, isPending } = useUpdateTaskStatusMutation();
   const { mutate: updateMarks } = useUpdateTaskMarksMutation();
+  const { mutate: updateScore } = useUpdateTaskScoreMutation();
   const [marks, setMarks] = useState<string>(String(task.marks ?? 0));
+  const [score, setScore] = useState<string>(String(task.score ?? 0));
 
   const handleMarksChange = (newMarks: string) => {
     console.log("Handling marks change:", newMarks);
@@ -112,6 +114,108 @@ export const TaskCard = ({ task, onClick }: TaskCardProps) => {
             
             // Rollback to original value in local state
             setMarks(String(task.marks ?? 0));
+            
+            // Rollback cache to previous data
+            if (previousData) {
+              queryClient.setQueryData(queryKey, previousData);
+            }
+          },
+        }
+      );
+    }
+  };
+
+  const handleScoreChange = (newScore: string) => {
+    console.log("Handling score change:", newScore);
+    
+    if (newScore === "") {
+      setScore("");
+      return;
+    }
+    const numericOnly = newScore.replace(/[^0-9]/g, "");
+    const withoutLeadingZeros = numericOnly.replace(/^0+/, "") || "0";
+    const numValue = Number(withoutLeadingZeros);
+    
+    const totalMarks = task.marks ?? 0;
+    if (numValue > totalMarks) {
+      toast.error(`Score cannot exceed total marks (${totalMarks})`);
+      return;
+    }
+    
+    setScore(withoutLeadingZeros);
+    
+    console.log("Score updated:", {
+      taskId: task._id,
+      taskTitle: task.title,
+      newScore: withoutLeadingZeros,
+      oldScore: score,
+      numericValue: numValue
+    });
+  };
+
+  const handleScoreBlur = () => {
+    if (score === "") {
+      setScore("0");
+    }
+    
+    const numericScore = Number(score || "0");
+    const projectId = typeof task.project === "string" ? task.project : task.project._id;
+    
+    // only save if score changed
+    if (numericScore !== (task.score ?? 0)) {
+      console.log("Saving score to backend:", numericScore);
+      
+      const queryKey = ["project", projectId];
+      
+      // get previous data for rollback
+      const previousData = queryClient.getQueryData(queryKey) as
+        | { tasks: Task[]; project: Project }
+        | undefined;
+
+      // optimistic Update i.e update cache immediately
+      if (previousData) {
+        const updatedTasks = previousData.tasks.map((t) =>
+          t._id === task._id ? { ...t, score: numericScore } : t
+        );
+
+        queryClient.setQueryData(queryKey, {
+          ...previousData,
+          tasks: [...updatedTasks],
+        });
+      }
+      
+      updateScore(
+        { 
+          taskId: task._id, 
+          score: numericScore,
+          projectId 
+        },
+        {
+          onSuccess: (updatedTaskFromServer) => {
+            toast.success(`Score updated to ${numericScore}`);
+            
+            // Update cache with real server data
+            queryClient.setQueryData(queryKey, (old: any) => {
+              if (!old) return old;
+
+              const updatedTasks = old.tasks.map((t: Task) =>
+                t._id === task._id
+                  ? { ...t, ...updatedTaskFromServer } // merge real data
+                  : t
+              );
+
+              return {
+                ...old,
+                tasks: [...updatedTasks],
+              };
+            });
+            queryClient.invalidateQueries({ queryKey: queryKey });
+          },
+          onError: (error: any) => {
+            toast.error(error?.response?.data?.message || "Failed to update score");
+            
+            // Rollback to original value in local state
+            setScore(String(task.score ?? 0));
             
             // Rollback cache to previous data
             if (previousData) {
@@ -321,24 +425,49 @@ export const TaskCard = ({ task, onClick }: TaskCardProps) => {
 
         <div className="flex justify-between items-center pt-2">
           <div className="text-xs text-muted-foreground">Click to Edit</div>
+          {/* later add logic so this is only editable by owner of the workspace */}
           <div className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground">Total marks:</span>
-            {/* later add logic so this is only editable by owner of the workspace */}
-            <input
-              type="number"
-              value={marks}
-              onChange={(e) => {
-                handleMarksChange(e.target.value)
-              }}
-              onBlur={handleMarksBlur}
-              onClick={(e) => e.stopPropagation()}
-              onMouseDown={(e) => e.stopPropagation()}
-              onFocus={(e) => e.target.select()}
-              placeholder="0"
-              min="0"
-              max="100"
-              className="w-16 px-2 py-1 bg-background border border-blue-500/50 hover:border-blue-500 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded text-sm font-bold text-blue-400 text-center transition-colors outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-            />
+            {task.status === "Done" ? (
+              <>
+                {/* Score input when task is done */}
+                <input
+                  type="number"
+                  value={score}
+                  onChange={(e) => {
+                    handleScoreChange(e.target.value)
+                  }}
+                  onBlur={handleScoreBlur}
+                  onClick={(e) => e.stopPropagation()}
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onFocus={(e) => e.target.select()}
+                  placeholder="0"
+                  min="0"
+                  max={task.marks ?? 0}
+                  className="w-16 px-2 py-1 bg-background border border-green-500/50 hover:border-green-500 focus:border-green-500 focus:ring-1 focus:ring-green-500 rounded text-sm font-bold text-green-400 text-center transition-colors outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                />
+                <span className="text-xs text-muted-foreground">: out of <span className="text-md text-foreground font-bold">{task.marks ?? 0}</span></span>
+              </>
+            ) : (
+              <>
+                <span className="text-xs text-muted-foreground">Total marks:</span>
+                {/* Total marks input when task is not done */}
+                <input
+                  type="number"
+                  value={marks}
+                  onChange={(e) => {
+                    handleMarksChange(e.target.value)
+                  }}
+                  onBlur={handleMarksBlur}
+                  onClick={(e) => e.stopPropagation()}
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onFocus={(e) => e.target.select()}
+                  placeholder="0"
+                  min="0"
+                  max="100"
+                  className="w-16 px-2 py-1 bg-background border border-blue-500/50 hover:border-blue-500 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded text-sm font-bold text-blue-400 text-center transition-colors outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                />
+              </>
+            )}
           </div>
         </div>
       </CardContent>

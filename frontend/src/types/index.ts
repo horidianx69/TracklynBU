@@ -81,6 +81,7 @@ export interface Task {
   watchers?: User[];
   attachments?: Attachment[];
   marks?: number;
+  score?: number;
 }
 
 export interface Attachment {

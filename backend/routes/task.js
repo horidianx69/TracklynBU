@@ -16,6 +16,7 @@ import {
   updateTaskAssignees,
   updateTaskDescription,
   updateTaskMarks,
+  updateTaskScore,
   updateTaskPriority,
   updateTaskStatus,
   updateTaskTitle,
@@ -145,6 +146,16 @@ router.put(
     body: z.object({ marks: z.number().min(0).max(100) }),
   }),
   updateTaskMarks
+);
+
+router.put(
+  "/:taskId/score",
+  authMiddleware,
+  validateRequest({
+    params: z.object({ taskId: z.string() }),
+    body: z.object({ score: z.number().min(0) }),
+  }),
+  updateTaskScore
 );
 
 router.get(

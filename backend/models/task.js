@@ -26,6 +26,7 @@ const taskSchema = new Schema(
     estimatedHours: { type: Number, min: 0 },
     actualHours: { type: Number, min: 0 },
     marks: { type: Number, min: 0, max: 100, default: 0 },
+    score: { type: Number, min: 0, default: 0 },
     tags: [{ type: String }],
     subtasks: [
       {
