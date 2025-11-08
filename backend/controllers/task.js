@@ -647,6 +647,127 @@ const getMyTasks = async (req, res) => {
   }
 };
 
+const updateTaskMarks = async (req, res) => {
+  try {
+    const { taskId } = req.params;
+    const { marks } = req.body;
+
+    // Validate marks
+    if (typeof marks !== "number" || marks < 0 || marks > 100) {
+      return res.status(400).json({
+        message: "Marks must be a number between 0 and 100",
+      });
+    }
+
+    const task = await Task.findById(taskId);
+
+    if (!task) {
+      return res.status(404).json({
+        message: "Task not found",
+      });
+    }
+
+    const project = await Project.findById(task.project);
+
+    if (!project) {
+      return res.status(404).json({
+        message: "Project not found",
+      });
+    }
+
+    const isMember = project.members.some(
+      (member) => member.user.toString() === req.user._id.toString()
+    );
+
+    if (!isMember) {
+      return res.status(403).json({
+        message: "You are not a member of this project",
+      });
+    }
+
+    const oldMarks = task.marks || 0;
+
+    task.marks = marks;
+    await task.save();
+
+    // record activity
+    await recordActivity(req.user._id, "updated_task", "Task", taskId, {
+      description: `updated task marks from ${oldMarks} to ${marks}`,
+    });
+
+    res.status(200).json(task);
+  } catch (error) {
+    console.log(error);
+    return res.status(500).json({
+      message: "Internal server error",
+    });
+  }
+};
+
+const updateTaskScore = async (req, res) => {
+  try {
+    const { taskId } = req.params;
+    const { score } = req.body;
+
+    // Validate score
+    if (typeof score !== "number" || score < 0) {
+      return res.status(400).json({
+        message: "Score must be a number greater than or equal to 0",
+      });
+    }
+
+    const task = await Task.findById(taskId);
+
+    if (!task) {
+      return res.status(404).json({
+        message: "Task not found",
+      });
+    }
+
+    const project = await Project.findById(task.project);
+
+    if (!project) {
+      return res.status(404).json({
+        message: "Project not found",
+      });
+    }
+
+    const isMember = project.members.some(
+      (member) => member.user.toString() === req.user._id.toString()
+    );
+
+    if (!isMember) {
+      return res.status(403).json({
+        message: "You are not a member of this project",
+      });
+    }
+
+    // Validate score against marks
+    if (score > task.marks) {
+      return res.status(400).json({
+        message: `Score cannot exceed total marks (${task.marks})`,
+      });
+    }
+
+    const oldScore = task.score || 0;
+
+    task.score = score;
+    await task.save();
+
+    // record activity
+    await recordActivity(req.user._id, "updated_task", "Task", taskId, {
+      description: `updated task score from ${oldScore} to ${score}`,
+    });
+
+    res.status(200).json(task);
+  } catch (error) {
+    console.log(error);
+    return res.status(500).json({
+      message: "Internal server error",
+    });
+  }
+};
+
 export {
   createTask,
   getTaskById,
@@ -663,4 +784,6 @@ export {
   watchTask,
   achievedTask,
   getMyTasks,
+  updateTaskMarks,
+  updateTaskScore,
 };
