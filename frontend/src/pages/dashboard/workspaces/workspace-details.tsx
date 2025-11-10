@@ -1,6 +1,7 @@
 import { Loader } from "@/components/loader";
 import { CreateProjectDialog } from "@/components/project/create-project";
 import { InviteMemberDialog } from "@/components/workspace/invite-member";
+import { ProjectRequestsDialog } from "@/components/workspace/project-requests-dialog";
 import { ProjectList } from "@/components/workspace/project-list";
 import { WorkspaceHeader } from "@/components/workspace/workspace-header";
 import { useGetWorkspaceQuery } from "@/hooks/use-workspace";
@@ -12,6 +13,7 @@ const WorkspaceDetails = () => {
   const { workspaceId } = useParams<{ workspaceId: string }>();
   const [isCreateProject, setIsCreateProject] = useState(false);
   const [isInviteMember, setIsInviteMember] = useState(false);
+  const [isProjectRequests, setIsProjectRequests] = useState(false);
 
   if (!workspaceId) {
     return <div>No workspace found</div>;
@@ -40,6 +42,7 @@ const WorkspaceDetails = () => {
         members={data?.workspace?.members as any}
         onCreateProject={() => setIsCreateProject(true)}
         onInviteMember={() => setIsInviteMember(true)}
+        onProjectRequests={() => setIsProjectRequests(true)}
       />
 
       <ProjectList
@@ -59,6 +62,13 @@ const WorkspaceDetails = () => {
         isOpen={isInviteMember}
         onOpenChange={setIsInviteMember}
         workspaceId={workspaceId}
+      />
+
+      <ProjectRequestsDialog
+        isOpen={isProjectRequests}
+        onOpenChange={setIsProjectRequests}
+        workspaceId={workspaceId}
+        // projects={data.projects}
       />
     </div>
   );

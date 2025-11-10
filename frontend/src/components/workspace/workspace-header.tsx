@@ -3,6 +3,7 @@ import { WorkspaceAvatar } from "./workspace-avatar";
 import { Button } from "../ui/button";
 import { Plus, UserPlus } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
+import { useAuth } from "@/provider/auth-context";
 
 interface WorkspaceHeaderProps {
   workspace: Workspace;
@@ -14,6 +15,7 @@ interface WorkspaceHeaderProps {
   }[];
   onCreateProject: () => void;
   onInviteMember: () => void;
+  onProjectRequests: () => void;
 }
 
 export const WorkspaceHeader = ({
@@ -21,7 +23,12 @@ export const WorkspaceHeader = ({
   members,
   onCreateProject,
   onInviteMember,
+  onProjectRequests,
 }: WorkspaceHeaderProps) => {
+  const { user } = useAuth();
+  const currentMember = members.find((member) => member.user._id === user?._id);
+  console.log("Current Member:", currentMember);
+  
   return (
     <div className="space-y-8">
       <div className="space-y-3">
@@ -37,10 +44,16 @@ export const WorkspaceHeader = ({
           </div>
 
           <div className="flex items-center gap-3 justify-between md:justify-start mb-4 md:mb-0">
-            <Button variant={"outline"} onClick={onInviteMember}>
-              <UserPlus className="size-4 mr-2" />
-              Invite
-            </Button>
+            {currentMember?.role == 'owner' && (<>
+              <Button variant={"destructive"} onClick={onProjectRequests}>
+              Project Requests
+              </Button>
+              <Button variant={"outline"} onClick={onInviteMember}>
+                <UserPlus className="size-4 mr-2" />
+                Invite
+              </Button>
+            </>)}
+            {/* if the current user is already a member and already part of a project dont allow them to create a new project */}
             <Button onClick={onCreateProject}>
               <Plus className="size-4 mr-2" />
               Create Project
