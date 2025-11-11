@@ -3,6 +3,7 @@ import { ProjectStatus, type MemberProps } from "@/types";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
+import { useAuth } from "@/provider/auth-context";
 import {
   Dialog,
   DialogContent,
@@ -53,6 +54,18 @@ export const CreateProjectDialog = ({
   workspaceId,
   workspaceMembers,
 }: CreateProjectDialogProps) => {
+  const { user } = useAuth();
+  
+  const workspaceOwner = workspaceMembers.find((m) => m.role === "owner");
+  const currentUserMember = workspaceMembers.find(
+    (m) => m.user._id === user?._id
+  );
+
+  // filtering out owner and current user from selectable members as they will be added automatically
+  const selectableMembers = workspaceMembers.filter(
+    (m) => m.role !== "owner" && m.user._id !== user?._id
+  );
+
   const form = useForm<CreateProjectFormData>({
     resolver: zodResolver(projectSchema),
     defaultValues: {
@@ -68,11 +81,38 @@ export const CreateProjectDialog = ({
   const { mutate, isPending } = UseCreateProject();
 
   const onSubmit = (values: CreateProjectFormData) => {
-    if (!workspaceId) return;
+    if (!workspaceId || !workspaceOwner) return;
+
+    //members array with owner as the manager 
+    const projectMembers: Array<{ user: string; role: "manager" | "contributor" | "viewer" }> = [
+      {
+        user: workspaceOwner.user._id,
+        role: "manager",
+      },
+    ];
+
+    // add current user as contributor if they're not the owner i.e they are not automaticlly part of the project as manager
+    if (currentUserMember && currentUserMember.role !== "owner") {
+      projectMembers.push({
+        user: currentUserMember.user._id,
+        role: "contributor",
+      });
+    }
+
+    // add other selected members as contributors
+    const selectedMembers = (values.members || []).map((m) => ({
+      user: m.user,
+      role: "contributor" as "manager" | "contributor" | "viewer",
+    }));
+
+    const projectData = {
+      ...values,
+      members: [...projectMembers, ...selectedMembers],
+    };
 
     mutate(
       {
-        projectData: values,
+        projectData,
         workspaceId,
       },
       {
@@ -267,7 +307,7 @@ export const CreateProjectDialog = ({
 
                 return (
                   <FormItem>
-                    <FormLabel>Members</FormLabel>
+                    <FormLabel>Additional Members</FormLabel>
                     <FormControl>
                       <Popover>
                         <PopoverTrigger asChild>
@@ -280,100 +320,77 @@ export const CreateProjectDialog = ({
                                 Select Members
                               </span>
                             ) : selectedMembers.length <= 2 ? (
-                              selectedMembers.map((m) => {
-                                const member = workspaceMembers.find(
-                                  (wm) => wm.user._id === m.user
-                                );
-
-                                return `${member?.user.name} (${member?.role})`;
-                              })
+                              selectedMembers
+                                .map((m) => {
+                                  const member = selectableMembers.find(
+                                    (wm) => wm.user._id === m.user
+                                  );
+                                  return member?.user.name;
+                                })
+                                .join(", ")
                             ) : (
                               `${selectedMembers.length} members selected`
                             )}
                           </Button>
                         </PopoverTrigger>
                         <PopoverContent
-                          className="w-full max-w-60 overflow-y-auto"
+                          className="w-full max-w-60 overflow-y-auto max-h-64"
                           align="start"
                         >
-                          <div className="flex flex-col gap-2">
-                            {workspaceMembers.map((member) => {
-                              const selectedMember = selectedMembers.find(
-                                (m) => m.user === member.user._id
-                              );
+                          {selectableMembers.length === 0 ? (
+                            <div className="text-sm text-muted-foreground text-center py-2">
+                              No additional members available
+                            </div>
+                          ) : (
+                            <div className="flex flex-col gap-2">
+                              {selectableMembers.map((member) => {
+                                const isSelected = selectedMembers.some(
+                                  (m) => m.user === member.user._id
+                                );
 
-                              return (
-                                <div
-                                  key={member._id}
-                                  className="flex items-center gap-2 p-2 border rounded"
-                                >
-                                  <Checkbox
-                                    checked={!!selectedMember}
-                                    onCheckedChange={(checked) => {
-                                      if (checked) {
-                                        field.onChange([
-                                          ...selectedMembers,
-                                          {
-                                            user: member.user._id,
-                                            role: "contributor",
-                                          },
-                                        ]);
-                                      } else {
-                                        field.onChange(
-                                          selectedMembers.filter(
-                                            (m) => m.user !== member.user._id
-                                          )
-                                        );
-                                      }
-                                    }}
-                                    id={`member-${member.user._id}`}
-                                  />
-                                  <span className="truncate flex-1">
-                                    {member.user.name}
-                                  </span>
-
-                                  {selectedMember && (
-                                    <Select
-                                      value={selectedMember.role}
-                                      onValueChange={(role) => {
-                                        field.onChange(
-                                          selectedMembers.map((m) =>
-                                            m.user === member.user._id
-                                              ? {
-                                                  ...m,
-                                                  role: role as
-                                                    | "contributor"
-                                                    | "manager"
-                                                    | "viewer",
-                                                }
-                                              : m
-                                          )
-                                        );
+                                return (
+                                  <div
+                                    key={member._id}
+                                    className="flex items-center gap-2 p-2 border rounded hover:bg-muted/50 transition-colors"
+                                  >
+                                    <Checkbox
+                                      checked={isSelected}
+                                      onCheckedChange={(checked) => {
+                                        if (checked) {
+                                          field.onChange([
+                                            ...selectedMembers,
+                                            {
+                                              user: member.user._id,
+                                              role: "contributor",
+                                            },
+                                          ]);
+                                        } else {
+                                          field.onChange(
+                                            selectedMembers.filter(
+                                              (m) => m.user !== member.user._id
+                                            )
+                                          );
+                                        }
                                       }}
+                                      id={`member-${member.user._id}`}
+                                    />
+                                    <label
+                                      htmlFor={`member-${member.user._id}`}
+                                      className="truncate flex-1 cursor-pointer text-sm"
                                     >
-                                      <SelectTrigger>
-                                        <SelectValue placeholder="Select Role" />
-                                      </SelectTrigger>
-                                      <SelectContent>
-                                        <SelectItem value="manager">
-                                          Manager
-                                        </SelectItem>
-                                        <SelectItem value="contributor">
-                                          Contributor
-                                        </SelectItem>
-                                        <SelectItem value="viewer">
-                                          Viewer
-                                        </SelectItem>
-                                      </SelectContent>
-                                    </Select>
-                                  )}
-                                </div>
-                              );
-                            })}
-                          </div>
+                                      {member.user.name}
+                                    </label>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
                         </PopoverContent>
                       </Popover>
                     </FormControl>
+                    <div className="text-xs text-muted-foreground mt-1">
+                      Owner will be added as Manager, you will be added as Contributor
+                    </div>
                     <FormMessage />
                   </FormItem>
                 );

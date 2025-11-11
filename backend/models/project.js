@@ -38,6 +38,7 @@ const projectSchema = new Schema(
     tags: [{ type: String }],
     createdBy: { type: Schema.Types.ObjectId, ref: "User", required: true },
     isArchived: { type: Boolean, default: false },
+    isApproved: { type: Boolean, default: false },
   },
   { timestamps: true }
 );

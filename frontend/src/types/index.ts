@@ -47,6 +47,7 @@ export interface Project {
   createdAt: Date;
   updatedAt: Date;
   isArchived: boolean;
+  isApproved: boolean;
 }
 export type TaskStatus = "To Do" | "In Progress" | "Done";
 export type TaskPriority = "High" | "Medium" | "Low";
