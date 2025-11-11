@@ -41,8 +41,8 @@ export interface Project {
   progress: number;
   tasks: Task[];
   members: {
-    user: User;
-    role: "admin" | "member" | "owner" | "viewer";
+    user: string;  
+    role: "manager" | "contributor" | "viewer"; 
   }[];
   createdAt: Date;
   updatedAt: Date;

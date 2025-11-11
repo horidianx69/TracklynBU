@@ -68,7 +68,8 @@ const WorkspaceDetails = () => {
         isOpen={isProjectRequests}
         onOpenChange={setIsProjectRequests}
         workspaceId={workspaceId}
-        // projects={data.projects}
+        projects={data.projects}
+        members={data?.workspace?.members as any}
       />
     </div>
   );

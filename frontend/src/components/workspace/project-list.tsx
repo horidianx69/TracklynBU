@@ -14,19 +14,20 @@ export const ProjectList = ({
   projects,
   onCreateProject,
 }: ProjectListProps) => {
+  const approvedProjects = projects.filter((project) => project.isApproved);
   return (
     <div>
       <h3 className="text-xl font-medium mb-4">Projects</h3>
       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        {projects.length === 0 ? (
+        {approvedProjects.length === 0 ? (
           <NoDataFound
-            title="No projects found"
-            description="Create a project to get started"
+            title="No approved projects found"
+            description="Create a project to get started or wait for a project to be approved"
             buttonText="Create Project"
             buttonAction={onCreateProject}
           />
         ) : (
-          projects.map((project) => {
+          approvedProjects.map((project) => {
             const projectProgress = 0;
 
             return (
