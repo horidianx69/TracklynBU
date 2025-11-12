@@ -41,12 +41,13 @@ export interface Project {
   progress: number;
   tasks: Task[];
   members: {
-    user: User;
-    role: "admin" | "member" | "owner" | "viewer";
+    user: string;  
+    role: "manager" | "contributor" | "viewer"; 
   }[];
   createdAt: Date;
   updatedAt: Date;
   isArchived: boolean;
+  isApproved: boolean;
 }
 export type TaskStatus = "To Do" | "In Progress" | "Done";
 export type TaskPriority = "High" | "Medium" | "Low";
