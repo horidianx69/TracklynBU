@@ -105,11 +105,14 @@ export const CreateProjectDialog = ({
       role: "contributor" as "manager" | "contributor" | "viewer",
     }));
 
+    const isAutomaticallyApproved = workspaceOwner.user._id === user?._id;
+
     const projectData = {
       ...values,
       members: [...projectMembers, ...selectedMembers],
+      isApproved: isAutomaticallyApproved
     };
-
+    console.log("Creating project with data:", projectData);
     mutate(
       {
         projectData,

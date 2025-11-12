@@ -5,7 +5,7 @@ import Task from "../models/task.js";
 const createProject = async (req, res) => {
   try {
     const { workspaceId } = req.params;
-    const { title, description, status, startDate, dueDate, tags, members } =
+    const { title, description, status, startDate, dueDate, tags, members, isApproved } =
       req.body;
 
     const workspace = await Workspace.findById(workspaceId);
@@ -38,6 +38,7 @@ const createProject = async (req, res) => {
       workspace: workspaceId,
       members,
       createdBy: req.user._id,
+      isApproved: isApproved || false,
     });
 
     workspace.projects.push(newProject._id);

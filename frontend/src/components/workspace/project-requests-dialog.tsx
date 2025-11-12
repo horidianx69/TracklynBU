@@ -77,7 +77,9 @@ export const ProjectRequestsDialog = ({
           <DialogTitle>Project Requests</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="space-y-4 max-h-96 overflow-y-scroll [&::-webkit-scrollbar]:hidden 
+                [-ms-overflow-style:none] 
+                [scrollbar-width:none]">
           {projectRequests.length === 0 ? (
             <div className="text-center py-8">
               <p className="text-muted-foreground">No project requests at the moment</p>
@@ -88,7 +90,7 @@ export const ProjectRequestsDialog = ({
               const requestedBy = members.find((member) => member.user._id === creatorUserId);
               
               return(
-              <Card key={request._id}>
+              <Card key={request._id} >
                 <CardHeader className="space-y-3">
                   <div className="flex items-start justify-between gap-4">
                     <div className="space-y-1 flex-1">
