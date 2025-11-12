@@ -7,6 +7,8 @@ import {
   createProject,
   getProjectDetails,
   getProjectTasks,
+  approveProject,
+  rejectProject,
 } from "../controllers/project.js";
 
 const router = express.Router();
@@ -38,4 +40,23 @@ router.get(
   validateRequest({ params: z.object({ projectId: z.string() }) }),
   getProjectTasks
 );
+
+router.put(
+  "/:projectId/approve",
+  authMiddleware,
+  validateRequest({
+    params: z.object({ projectId: z.string() }),
+  }),
+  approveProject
+);
+
+router.delete(
+  "/:projectId/reject",
+  authMiddleware,
+  validateRequest({
+    params: z.object({ projectId: z.string() }),
+  }),
+  rejectProject
+);
+
 export default router;

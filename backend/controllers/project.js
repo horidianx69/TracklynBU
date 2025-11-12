@@ -123,4 +123,105 @@ const getProjectTasks = async (req, res) => {
   }
 };
 
-export { createProject, getProjectDetails, getProjectTasks };
+const approveProject = async (req, res) => {
+  try {
+    const { projectId } = req.params;
+
+    const project = await Project.findById(projectId);
+
+    if (!project) {
+      return res.status(404).json({
+        message: "Project not found",
+      });
+    }
+
+    // find the workspace to check if user is owner
+    const workspace = await Workspace.findById(project.workspace);
+
+    if (!workspace) {
+      return res.status(404).json({
+        message: "Workspace not found",
+      });
+    }
+
+    const isOwner = workspace.members.some(
+      (member) =>
+        member.user.toString() === req.user._id.toString() &&
+        member.role === "owner"
+    );
+
+    if (!isOwner) {
+      return res.status(403).json({
+        message: "Only workspace owner can approve projects",
+      });
+    }
+
+    // update
+    project.isApproved = true;
+    await project.save();
+
+    return res.status(200).json({
+      message: "Project approved successfully",
+      project,
+    });
+  } catch (error) {
+    console.log(error);
+    return res.status(500).json({
+      message: "Internal server error",
+    });
+  }
+};
+
+const rejectProject = async (req, res) => {
+  try {
+    const { projectId } = req.params;
+
+    const project = await Project.findById(projectId);
+
+    if (!project) {
+      return res.status(404).json({
+        message: "Project not found",
+      });
+    }
+
+    const workspace = await Workspace.findById(project.workspace);
+
+    if (!workspace) {
+      return res.status(404).json({
+        message: "Workspace not found",
+      });
+    }
+
+    const isOwner = workspace.members.some(
+      (member) =>
+        member.user.toString() === req.user._id.toString() &&
+        member.role === "owner"
+    );
+
+    if (!isOwner) {
+      return res.status(403).json({
+        message: "Only workspace owner can reject projects",
+      });
+    }
+
+    // remove project from workspace
+    workspace.projects = workspace.projects.filter(
+      (p) => p.toString() !== projectId
+    );
+    await workspace.save();
+
+    // delete the project
+    await Project.findByIdAndDelete(projectId);
+
+    return res.status(200).json({
+      message: "Project rejected and deleted successfully",
+    });
+  } catch (error) {
+    console.log(error);
+    return res.status(500).json({
+      message: "Internal server error",
+    });
+  }
+};
+
+export { createProject, getProjectDetails, getProjectTasks, approveProject, rejectProject };

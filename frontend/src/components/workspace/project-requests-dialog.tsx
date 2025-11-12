@@ -3,6 +3,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Button } from "../ui/button";
 import { CheckCircle, XCircle } from "lucide-react";
 import type { Project, User } from "@/types";
+import { useApproveProjectMutation, useRejectProjectMutation } from "@/hooks/use-project";
+import { toast } from "sonner";
 
 interface ProjectRequestsDialogProps {
   isOpen: boolean;
@@ -25,6 +27,47 @@ export const ProjectRequestsDialog = ({
   members
 }: ProjectRequestsDialogProps) => {
   
+  // These hooks give us the `mutate` function and `isPending` state
+  const { mutate: approveProject, isPending: isApproving } = useApproveProjectMutation();
+  const { mutate: rejectProject, isPending: isRejecting } = useRejectProjectMutation();
+  
+  const handleApprove = (projectId: string) => {
+    // Call the mutate function with the data it needs
+    approveProject(
+      { 
+        projectId,
+        workspaceId 
+      },
+      {
+        // onSuccess: This callback runs after successful API call
+        onSuccess: () => {
+          toast.success("Project approved successfully");
+        },
+        // onError: This callback runs if the API call fails
+        onError: (error: any) => {
+          toast.error(error?.response?.data?.message || "Failed to approve project");
+        },
+      }
+    );
+  };
+
+  const handleReject = (projectId: string) => {
+    rejectProject(
+      { 
+        projectId,
+        workspaceId 
+      },
+      {
+        onSuccess: () => {
+          toast.success("Project rejected and deleted");
+        },
+        onError: (error: any) => {
+          toast.error(error?.response?.data?.message || "Failed to reject project");
+        },
+      }
+    );
+  };
+  
   const projectRequests = projects.filter((project) => !project.isApproved)
 
   return (
@@ -46,39 +89,47 @@ export const ProjectRequestsDialog = ({
               
               return(
               <Card key={request._id}>
-                <CardHeader>
-                  <CardTitle className="text-base">{request.title}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-center justify-between">
-                    <div>
+                <CardHeader className="space-y-3">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="space-y-1 flex-1">
+                      <CardTitle className="text-lg font-semibold">{request.title}</CardTitle>
                       <p className="text-sm text-muted-foreground">
-                        Requested by: {requestedBy?.user.name || "Unknown"}
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        Description: {request.description}
+                        by <span className="font-medium text-foreground">{requestedBy?.user.name || "Unknown"}</span>
                       </p>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 shrink-0">
                       <Button
                         size="sm"
                         variant="outline"
                         className="gap-2"
+                        onClick={() => handleApprove(request._id)}
+                        disabled={isApproving || isRejecting}
                       >
-                        <CheckCircle className="w-4 h-4" />
-                        Accept
+                      <CheckCircle className="w-4 h-4" />
+                        {isApproving ? "Approving..." : "Accept"}
                       </Button>
                       <Button
                         size="sm"
                         variant="destructive"
                         className="gap-2"
+                        onClick={() => handleReject(request._id)}
+                        disabled={isApproving || isRejecting}
                       >
-                        <XCircle className="w-4 h-4" />
-                        Reject
+                      <XCircle className="w-4 h-4" />
+                        {isRejecting ? "Rejecting..." : "Reject"}
                       </Button>
                     </div>
                   </div>
-                </CardContent>
+                </CardHeader>
+                {request.description && (
+                  <CardContent className="pt-0">
+                    <div className="rounded-md bg-muted/50 p-3">
+                      <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">
+                        {request.description}
+                      </p>
+                    </div>
+                  </CardContent>
+                )}
               </Card>
             )})
           )}
