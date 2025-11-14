@@ -15,9 +15,10 @@ import { useState } from "react";
 interface TaskCardProps {
   task: Task;
   onClick: () => void;
+  currentUserRole?: "manager" | "contributor" | "viewer";
 }
 
-export const TaskCard = ({ task, onClick }: TaskCardProps) => {
+export const TaskCard = ({ task, onClick, currentUserRole }: TaskCardProps) => {
   // console.log("Task:", task);
   const queryClient = useQueryClient();
   const { mutate, isPending } = useUpdateTaskStatusMutation();
@@ -25,6 +26,8 @@ export const TaskCard = ({ task, onClick }: TaskCardProps) => {
   const { mutate: updateScore } = useUpdateTaskScoreMutation();
   const [marks, setMarks] = useState<string>(String(task.marks ?? 0));
   const [score, setScore] = useState<string>(String(task.score ?? 0));
+  
+  const isManager = currentUserRole === "manager";
 
   const handleMarksChange = (newMarks: string) => {
     console.log("Handling marks change:", newMarks);
@@ -232,6 +235,7 @@ export const TaskCard = ({ task, onClick }: TaskCardProps) => {
     data: {
       task,
     },
+    disabled: !isManager,
   });
 
   const style = {
@@ -303,12 +307,14 @@ export const TaskCard = ({ task, onClick }: TaskCardProps) => {
       ref={setNodeRef}
       style={style}
       {...attributes}
-      {...listeners}
+      {...(isManager ? listeners : {})}
       onClick={(e) => {
         if ((e.target as HTMLElement).closest("button")) return;
-        onClick();
+        if (isManager) {
+          onClick();
+        }
       }}
-      className="cursor-grab active:cursor-grabbing hover:shadow-md transition-all duration-300 gap-2 py-4"
+      className={`${isManager ? "cursor-grab active:cursor-grabbing" : "cursor-default"} hover:shadow-md transition-all duration-300 gap-2 py-4`}
     >
       <CardHeader>
         <div className="flex items-center justify-between">
@@ -324,55 +330,57 @@ export const TaskCard = ({ task, onClick }: TaskCardProps) => {
             {task.priority || "Low"}
           </Badge>
 
-          <div className="flex gap-1">
-            {task.status !== "To Do" && (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="size-6"
-                disabled={isPending}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleStatusChange("To Do");
-                }}
-                title="Mark as To Do"
-              >
-                <AlertCircle className="size-4 text-yellow-500" />
-              </Button>
-            )}
+          {isManager && (
+            <div className="flex gap-1">
+              {task.status !== "To Do" && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-6"
+                  disabled={isPending}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleStatusChange("To Do");
+                  }}
+                  title="Mark as To Do"
+                >
+                  <AlertCircle className="size-4 text-yellow-500" />
+                </Button>
+              )}
 
-            {task.status !== "In Progress" && (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="size-6"
-                disabled={isPending}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleStatusChange("In Progress");
-                }}
-                title="Mark as In Progress"
-              >
-                <Clock className="size-4 text-blue-500" />
-              </Button>
-            )}
+              {task.status !== "In Progress" && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-6"
+                  disabled={isPending}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleStatusChange("In Progress");
+                  }}
+                  title="Mark as In Progress"
+                >
+                  <Clock className="size-4 text-blue-500" />
+                </Button>
+              )}
 
-            {task.status !== "Done" && (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="size-6"
-                disabled={isPending}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleStatusChange("Done");
-                }}
-                title="Mark as Done"
-              >
-                <CheckCircle className="size-4 text-green-600" />
-              </Button>
-            )}
-          </div>
+              {task.status !== "Done" && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-6"
+                  disabled={isPending}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleStatusChange("Done");
+                  }}
+                  title="Mark as Done"
+                >
+                  <CheckCircle className="size-4 text-green-600" />
+                </Button>
+              )}
+            </div>
+          )}
         </div>
       </CardHeader>
 
@@ -424,8 +432,8 @@ export const TaskCard = ({ task, onClick }: TaskCardProps) => {
         )}
 
         <div className="flex justify-between items-center pt-2">
-          <div className="text-xs text-muted-foreground">Click to Edit</div>
-          {/* later add logic so this is only editable by owner of the workspace */}
+          {isManager && <div className="text-xs text-muted-foreground">Click to Edit</div>}
+          {!isManager && <div className="text-xs text-muted-foreground">View Only</div>}
           <div className="flex items-center gap-2">
             {task.status === "Done" ? (
               <>
@@ -434,16 +442,21 @@ export const TaskCard = ({ task, onClick }: TaskCardProps) => {
                   type="number"
                   value={score}
                   onChange={(e) => {
-                    handleScoreChange(e.target.value)
+                    if (isManager) handleScoreChange(e.target.value)
                   }}
-                  onBlur={handleScoreBlur}
+                  onBlur={isManager ? handleScoreBlur : undefined}
                   onClick={(e) => e.stopPropagation()}
                   onMouseDown={(e) => e.stopPropagation()}
-                  onFocus={(e) => e.target.select()}
+                  onFocus={(e) => isManager && e.target.select()}
                   placeholder="0"
                   min="0"
                   max={task.marks ?? 0}
-                  className="w-16 px-2 py-1 bg-background border border-green-500/50 hover:border-green-500 focus:border-green-500 focus:ring-1 focus:ring-green-500 rounded text-sm font-bold text-green-400 text-center transition-colors outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  readOnly={!isManager}
+                  className={`w-16 px-2 py-1 bg-background border rounded text-sm font-bold text-green-400 text-center transition-colors outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${
+                    isManager 
+                      ? "border-green-500/50 hover:border-green-500 focus:border-green-500 focus:ring-1 focus:ring-green-500 cursor-text" 
+                      : "border-muted cursor-not-allowed opacity-70"
+                  }`}
                 />
                 <span className="text-xs text-muted-foreground">: out of <span className="text-md text-foreground font-bold">{task.marks ?? 0}</span></span>
               </>
@@ -455,16 +468,21 @@ export const TaskCard = ({ task, onClick }: TaskCardProps) => {
                   type="number"
                   value={marks}
                   onChange={(e) => {
-                    handleMarksChange(e.target.value)
+                    if (isManager) handleMarksChange(e.target.value)
                   }}
-                  onBlur={handleMarksBlur}
+                  onBlur={isManager ? handleMarksBlur : undefined}
                   onClick={(e) => e.stopPropagation()}
                   onMouseDown={(e) => e.stopPropagation()}
-                  onFocus={(e) => e.target.select()}
+                  onFocus={(e) => isManager && e.target.select()}
                   placeholder="0"
                   min="0"
                   max="100"
-                  className="w-16 px-2 py-1 bg-background border border-blue-500/50 hover:border-blue-500 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded text-sm font-bold text-blue-400 text-center transition-colors outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  readOnly={!isManager}
+                  className={`w-16 px-2 py-1 bg-background border rounded text-sm font-bold text-blue-400 text-center transition-colors outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${
+                    isManager 
+                      ? "border-blue-500/50 hover:border-blue-500 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 cursor-text" 
+                      : "border-muted cursor-not-allowed opacity-70"
+                  }`}
                 />
               </>
             )}

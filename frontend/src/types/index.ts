@@ -41,8 +41,9 @@ export interface Project {
   progress: number;
   tasks: Task[];
   members: {
-    user: string;  
+    user: string | User;  
     role: "manager" | "contributor" | "viewer"; 
+    _id: string
   }[];
   createdAt: Date;
   updatedAt: Date;

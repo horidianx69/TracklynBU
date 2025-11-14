@@ -86,6 +86,7 @@ export const ProjectRequestsDialog = ({
             </div>
           ) : (
             projectRequests.map((request) => {
+              console.log("Request:", request); 
               const creatorUserId = request.members[1]?.user;
               const requestedBy = members.find((member) => member.user._id === creatorUserId);
               

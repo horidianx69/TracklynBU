@@ -16,6 +16,7 @@ import { TaskCard } from "./components/TaskCard";
 import { useUpdateTaskStatusMutation } from "@/hooks/use-task";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { useAuth } from "@/provider/auth-context";
 
 const ProjectDetails = () => {
   const { projectId, workspaceId } = useParams<{
@@ -56,11 +57,19 @@ const ProjectDetails = () => {
   const { project, tasks } = data;
   const projectProgress = getProjectProgress(tasks);
 
+  const { user } = useAuth();
+  const currentUser = project.members.find((member) => member.user._id === user?._id)
+  const currentUserRole = currentUser?.role
+
+
   const handleTaskClick = (taskId: string) => {
     navigate(`/workspaces/${workspaceId}/projects/${projectId}/tasks/${taskId}`);
   };
 
   const handleDragStart = (event: DragStartEvent) => {
+    // Only allow managers to drag tasks
+    if (currentUserRole !== "manager") return;
+    
     const task = tasks.find((t) => t._id === event.active.id);
     setActiveTask(task || null);
   };
@@ -68,6 +77,9 @@ const ProjectDetails = () => {
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     setActiveTask(null);
+
+    // Only allow managers to drop tasks
+    if (currentUserRole !== "manager") return;
 
     if (!over) return;
 
@@ -127,7 +139,6 @@ const ProjectDetails = () => {
       }
     );
   };
-
   return (
     <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
       <div className="space-y-8">
@@ -190,18 +201,21 @@ const ProjectDetails = () => {
                 title="To Do"
                 tasks={tasks.filter((task) => task.status === "To Do")}
                 onTaskClick={handleTaskClick}
+                currentUserRole={currentUserRole}
               />
 
               <TaskColumn
                 title="In Progress"
                 tasks={tasks.filter((task) => task.status === "In Progress")}
                 onTaskClick={handleTaskClick}
+                currentUserRole={currentUserRole}
               />
 
               <TaskColumn
                 title="Done"
                 tasks={tasks.filter((task) => task.status === "Done")}
                 onTaskClick={handleTaskClick}
+                currentUserRole={currentUserRole}
               />
             </div>
           </TabsContent>
@@ -212,6 +226,7 @@ const ProjectDetails = () => {
                 title="To Do"
                 tasks={tasks.filter((task) => task.status === "To Do")}
                 onTaskClick={handleTaskClick}
+                currentUserRole={currentUserRole}
                 isFullWidth
               />
             </div>
@@ -223,6 +238,7 @@ const ProjectDetails = () => {
                 title="In Progress"
                 tasks={tasks.filter((task) => task.status === "In Progress")}
                 onTaskClick={handleTaskClick}
+                currentUserRole={currentUserRole}
                 isFullWidth
               />
             </div>
@@ -234,6 +250,7 @@ const ProjectDetails = () => {
                 title="Done"
                 tasks={tasks.filter((task) => task.status === "Done")}
                 onTaskClick={handleTaskClick}
+                currentUserRole={currentUserRole}
                 isFullWidth
               />
             </div>
