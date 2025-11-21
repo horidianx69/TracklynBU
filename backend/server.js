@@ -56,11 +56,29 @@ const app = express();
 
 // connect to DB
 connectDB();
-
+const allowedOrigins = [
+  "http://localhost:5173",
+  "http://localhost:5174",
+  "http://localhost:5175"
+];
 // ✅ Correct CORS setup
+// app.use(
+//   cors({
+//     origin: process.env.FRONTEND_URL?.replace(/\/$/, ""), // remove trailing slash if any
+//     methods: ["GET", "POST", "PUT", "DELETE"],
+//     allowedHeaders: ["Content-Type", "Authorization"],
+//     credentials: true, // ✅ Important if using tokens or cookies
+//   })
+// );
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL?.replace(/\/$/, ""), // remove trailing slash if any
+    origin: function (origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error("Not allowed by CORS"));
+    }
+  }, // remove trailing slash if any
     methods: ["GET", "POST", "PUT", "DELETE"],
     allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true, // ✅ Important if using tokens or cookies

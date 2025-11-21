@@ -8,6 +8,7 @@ interface TaskColumnProps {
   title: string;
   tasks: Task[];
   onTaskClick: (taskId: string) => void;
+  currentUserRole?: "manager" | "contributor" | "viewer";
   isFullWidth?: boolean;
 }
 
@@ -15,6 +16,7 @@ export const TaskColumn = ({
   title,
   tasks,
   onTaskClick,
+  currentUserRole,
   isFullWidth = false,
 }: TaskColumnProps) => {
   const { setNodeRef, isOver } = useDroppable({
@@ -60,6 +62,7 @@ export const TaskColumn = ({
                 key={task._id}
                 task={task}
                 onClick={() => onTaskClick(task._id)}
+                currentUserRole={currentUserRole}
               />
             ))
           )}
