@@ -1,3 +1,4 @@
+
 import { useAuth } from "@/provider/auth-context";
 import type { Workspace } from "@/types";
 import { Button } from "../ui/button";
@@ -14,9 +15,10 @@ import {
 import { Avatar, AvatarImage, AvatarFallback } from "../ui/avatar";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { WorkspaceAvatar } from "../workspace/workspace-avatar";
+import ModeToggle from "@/components/mode-toggle"; // ✅ import
 
 interface HeaderProps {
-  workspaces: Workspace[];                // 🧠 Added this prop
+  workspaces: Workspace[];
   onWorkspaceSelected: (workspace: Workspace) => void;
   selectedWorkspace: Workspace | null;
   onCreateWorkspace: () => void;
@@ -34,7 +36,6 @@ export const Header = ({
 
   const handleOnClick = (workspace: Workspace) => {
     onWorkspaceSelected(workspace);
-
     if (isOnWorkspacePage) {
       navigate(`/workspaces/${workspace._id}`);
     } else {
@@ -56,9 +57,7 @@ export const Header = ({
                       name={selectedWorkspace.name}
                     />
                   )}
-                  <span className="font-medium">
-                    {selectedWorkspace?.name}
-                  </span>
+                  <span className="font-medium">{selectedWorkspace?.name}</span>
                 </>
               ) : (
                 <span className="font-medium">Select Workspace</span>
@@ -91,6 +90,9 @@ export const Header = ({
         </DropdownMenu>
 
         <div className="flex items-center gap-2">
+          {/* ✅ ModeToggle sits between Bell and Avatar */}
+          <ModeToggle />
+
           <Button variant="ghost" size="icon">
             <Bell />
           </Button>

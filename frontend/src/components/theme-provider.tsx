@@ -1,11 +1,16 @@
-
-"use client"
-
-import { ReactNode, useEffect, useMemo, useState } from "react"
+import { type ReactNode, createContext, useContext, useEffect, useState } from "react"
 
 type Theme = "light" | "dark" | "system"
 
 const STORAGE_KEY = "theme"
+
+interface ThemeContextType {
+  theme: Theme
+  setTheme: (theme: Theme) => void
+  resolved: "light" | "dark"
+}
+
+const ThemeContext = createContext<ThemeContextType | undefined>(undefined)
 
 export default function ThemeProvider({
   defaultTheme = "system",
@@ -14,38 +19,52 @@ export default function ThemeProvider({
   defaultTheme?: Theme
   children: ReactNode
 }) {
-  const [theme, setTheme] = useState<Theme>(
+  const [theme, setThemeState] = useState<Theme>(
     () => (localStorage.getItem(STORAGE_KEY) as Theme) || defaultTheme
   )
 
-  // resolve actual theme (system or user choice)
-  const resolved = useMemo<"light" | "dark">(() => {
-    if (theme !== "system") return theme
+  // Derive the actual applied theme
+  const getResolved = (t: Theme): "light" | "dark" => {
+    if (t !== "system") return t
     return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"
-  }, [theme])
+  }
 
+  const [resolved, setResolved] = useState<"light" | "dark">(() => getResolved(theme))
+
+  const setTheme = (value: Theme) => {
+    localStorage.setItem(STORAGE_KEY, value)
+    setThemeState(value)
+    setResolved(getResolved(value))
+  }
+
+  // Apply class to <html> whenever resolved changes
   useEffect(() => {
-    const root = document.documentElement
-    root.classList.toggle("dark", resolved === "dark")
-    localStorage.setItem(STORAGE_KEY, theme)
-  }, [resolved, theme])
+    document.documentElement.classList.toggle("dark", resolved === "dark")
+  }, [resolved])
 
-  // re-check if system theme changes
+  // Listen for system preference changes
   useEffect(() => {
     if (theme !== "system") return
     const mq = window.matchMedia("(prefers-color-scheme: dark)")
     const handler = () => {
+      const next = mq.matches ? "dark" : "light"
+      setResolved(next)
       document.documentElement.classList.toggle("dark", mq.matches)
     }
     mq.addEventListener("change", handler)
     return () => mq.removeEventListener("change", handler)
   }, [theme])
 
-  return <>{children}</>
+  return (
+    <ThemeContext.Provider value={{ theme, setTheme, resolved }}>
+      {children}
+    </ThemeContext.Provider>
+  )
 }
 
+// ✅ Single hook — use this everywhere instead of touching localStorage directly
 export function useTheme() {
-  const get = (): Theme => (localStorage.getItem(STORAGE_KEY) as Theme) || "system"
-  const set = (value: Theme) => localStorage.setItem(STORAGE_KEY, value)
-  return { get, set }
+  const context = useContext(ThemeContext)
+  if (!context) throw new Error("useTheme must be used within a ThemeProvider")
+  return context
 }

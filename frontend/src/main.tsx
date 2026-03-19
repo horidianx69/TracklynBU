@@ -6,13 +6,16 @@ import ThemeProvider from "@/components/theme-provider";
 import "./index.css";
 import { BrowserRouter } from "react-router-dom";
 import ReactQueryProvider from "./provider/react-query-provider";
+import { AuthProvider } from "./provider/auth-context";
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
     <BrowserRouter>
       <ThemeProvider defaultTheme="system">
         <ReactQueryProvider>
+           <AuthProvider>  
           <App />
+           </AuthProvider>  
         </ReactQueryProvider>
       </ThemeProvider>
     </BrowserRouter>

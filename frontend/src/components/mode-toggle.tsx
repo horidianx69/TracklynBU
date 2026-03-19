@@ -1,5 +1,3 @@
-"use client"
-
 import * as React from "react"
 import { Moon, Sun, Laptop } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -9,23 +7,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-
-type Theme = "light" | "dark" | "system"
-const STORAGE_KEY = "theme"
+import { useTheme } from "@/components/theme-provider"
 
 export default function ModeToggle() {
-  const [mode, setMode] = React.useState<Theme>(
-    () => (localStorage.getItem(STORAGE_KEY) as Theme) || "system"
-  )
-
-  React.useEffect(() => {
-    const isDark =
-      mode === "dark" ||
-      (mode === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches)
-
-    document.documentElement.classList.toggle("dark", isDark)
-    localStorage.setItem(STORAGE_KEY, mode)
-  }, [mode])
+  // ✅ Uses shared context — no more independent localStorage reads
+  const { theme, setTheme } = useTheme()
 
   return (
     <DropdownMenu>
@@ -37,15 +23,15 @@ export default function ModeToggle() {
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        <DropdownMenuItem onClick={() => setMode("light")}>
+        <DropdownMenuItem onClick={() => setTheme("light")}>
           <Sun className="mr-2 h-4 w-4" />
           Light
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => setMode("dark")}>
+        <DropdownMenuItem onClick={() => setTheme("dark")}>
           <Moon className="mr-2 h-4 w-4" />
           Dark
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => setMode("system")}>
+        <DropdownMenuItem onClick={() => setTheme("system")}>
           <Laptop className="mr-2 h-4 w-4" />
           System
         </DropdownMenuItem>
@@ -53,4 +39,3 @@ export default function ModeToggle() {
     </DropdownMenu>
   )
 }
-
