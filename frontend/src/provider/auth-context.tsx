@@ -1,3 +1,4 @@
+
 import type { User } from "@/types";
 import { createContext, useContext, useEffect, useState } from "react";
 import { queryClient } from "./react-query-provider";
@@ -21,10 +22,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const navigate = useNavigate();
   const { pathname } = useLocation();
-  console.log("Current Pathname:", pathname);
+
   const isPublicRoute = publicRoutes.includes(pathname);
 
-  // check if user is authenticated
   useEffect(() => {
     const checkAuth = async () => {
       setIsLoading(true);
@@ -34,20 +34,21 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
         if (storedUser && token) {
           const parsedUser: User = JSON.parse(storedUser);
-
           setUser(parsedUser);
           setIsAuthenticated(true);
-          console.log(pathname);
 
-          // 🧠 Handle email verification route
-          if (!parsedUser.isEmailVerified && pathname.startsWith("/verify-email")) {
+          // ✅ FIX: If logged in but email not verified, always stay on /verify-email
+          // (the old logic was only navigating *to* verify-email when already there, which did nothing)
+          if (!parsedUser.isEmailVerified && !pathname.startsWith("/verify-email")) {
             navigate("/verify-email");
           }
         } else {
           setUser(null);
           setIsAuthenticated(false);
-          // ✅ Only redirect if not public and not already signing in
-          if (!isPublicRoute &&pathname.startsWith("/verify-email")) {
+
+          // ✅ FIX: Redirect to sign-in only when on a protected (non-public) route
+          // (the old condition checked `pathname.startsWith("/verify-email")` which was backwards)
+          if (!isPublicRoute) {
             navigate("/sign-in");
           }
         }
@@ -76,7 +77,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     setUser(data.user);
     setIsAuthenticated(true);
 
-    // Redirect logic on login
     if (!data.user.isEmailVerified) {
       navigate("/verify-email");
     } else {
@@ -87,10 +87,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const logout = async () => {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
-
     setUser(null);
     setIsAuthenticated(false);
-
     queryClient.clear();
   };
 

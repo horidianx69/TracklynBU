@@ -1,28 +1,25 @@
-import sgMail from "@sendgrid/mail";
-import dotenv from "dotenv";
-
-dotenv.config();
-
-sgMail.setApiKey(process.env.SEND_GRID_API);
-
-const fromEmail = process.env.FROM_EMAIL;
+import nodemailer from "nodemailer";
 
 export const sendEmail = async (to, subject, html) => {
-  const msg = {
-    to,
-    from: `TrackLynBu <${fromEmail}>`,
-    subject,
-    html,
-  };
-
   try {
-    await sgMail.send(msg);
-    console.log("Email sent successfully");
+    const transporter = nodemailer.createTransport({
+      service: "gmail",
+      auth: {
+        user: process.env.GMAIL_USER,
+        pass: process.env.GMAIL_APP_PASSWORD,
+      },
+    });
+
+    await transporter.sendMail({
+      from: `"Tracklyn" <${process.env.GMAIL_USER}>`,
+      to,
+      subject,
+      html,
+    });
 
     return true;
   } catch (error) {
     console.error("Error sending email:", error);
-
     return false;
   }
 };
