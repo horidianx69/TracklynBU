@@ -8,6 +8,13 @@ import { recordActivity } from "../libs/index.js";
 
 const createWorkspace = async (req, res) => {
   try {
+    // Only faculty and admin can create workspaces
+    if (!req.user.role || !['faculty', 'admin'].includes(req.user.role)) {
+      return res.status(403).json({
+        message: "Only faculty members can create workspaces",
+      });
+    }
+
     const { name, description, color } = req.body;
 
     const workspace = await Workspace.create({
@@ -26,7 +33,7 @@ const createWorkspace = async (req, res) => {
 
     res.status(201).json(workspace);
   } catch (error) {
-    console.log(error);
+    console.error(error);
     res.status(500).json({
       message: "Internal server error",
     });
@@ -54,7 +61,7 @@ const getWorkspaceDetails = async (req, res) => {
 
     const workspace = await Workspace.findById({
       _id: workspaceId,
-    }).populate("members.user", "name email profilePicture");
+    }).populate("members.user", "name email profilePicture role");
 
     if (!workspace) {
       return res.status(404).json({
@@ -62,8 +69,24 @@ const getWorkspaceDetails = async (req, res) => {
       });
     }
 
+    // Check if user is a member of this workspace
+    const isMember = workspace.members.some(
+      (member) => member.user._id.toString() === req.user._id.toString()
+    );
+
+    if (!isMember) {
+      return res.status(403).json({
+        message: "You are not a member of this workspace",
+      });
+    }
+
     res.status(200).json(workspace);
-  } catch (error) {}
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      message: "Internal server error",
+    });
+  }
 };
 
 const getWorkspaceProjects = async (req, res) => {
@@ -81,11 +104,17 @@ const getWorkspaceProjects = async (req, res) => {
       });
     }
 
-    const projects = await Project.find({
+    // Phase 4.2: Faculty Sees All Projects in Workspace
+    const query = {
       workspace: workspaceId,
       isArchived: false,
-      members: { $elemMatch: { user: req.user._id } },
-    })
+    };
+
+    if (req.user.role !== "faculty" && req.user.role !== "admin") {
+      query.members = { $elemMatch: { user: req.user._id } };
+    }
+
+    const projects = await Project.find(query)
       .populate("tasks", "status")
       .sort({ createdAt: -1 });
 
@@ -411,9 +440,78 @@ const inviteUserToWorkspace = async (req, res) => {
   }
 };
 
+// Generate a signed join token for QR/link sharing
+const generateJoinToken = async (req, res) => {
+  try {
+    const { workspaceId } = req.params;
+
+    const workspace = await Workspace.findById(workspaceId);
+
+    if (!workspace) {
+      return res.status(404).json({
+        message: "Workspace not found",
+      });
+    }
+
+    // Only owner/admin can generate join tokens
+    const memberInfo = workspace.members.find(
+      (member) => member.user.toString() === req.user._id.toString()
+    );
+
+    if (!memberInfo || !["owner", "admin"].includes(memberInfo.role)) {
+      return res.status(403).json({
+        message: "Only workspace owner or admin can generate join links",
+      });
+    }
+
+    const joinToken = jwt.sign(
+      {
+        workspaceId: workspaceId,
+        purpose: "workspace-join",
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: "24h" }
+    );
+
+    res.status(200).json({
+      joinToken,
+      message: "Join token generated successfully",
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      message: "Internal server error",
+    });
+  }
+};
+
+// Accept invite via QR/link with a signed join token
 const acceptGenerateInvite = async (req, res) => {
   try {
     const { workspaceId } = req.params;
+    const { joinToken } = req.body;
+
+    // Validate the join token
+    if (!joinToken) {
+      return res.status(400).json({
+        message: "Join token is required",
+      });
+    }
+
+    let decoded;
+    try {
+      decoded = jwt.verify(joinToken, process.env.JWT_SECRET);
+    } catch (err) {
+      return res.status(401).json({
+        message: "Invalid or expired join link",
+      });
+    }
+
+    if (decoded.purpose !== "workspace-join" || decoded.workspaceId !== workspaceId) {
+      return res.status(401).json({
+        message: "Invalid join link",
+      });
+    }
 
     const workspace = await Workspace.findById(workspaceId);
 
@@ -455,7 +553,7 @@ const acceptGenerateInvite = async (req, res) => {
       message: "Invitation accepted successfully",
     });
   } catch (error) {
-    console.log(error);
+    console.error(error);
     res.status(500).json({
       message: "Internal server error",
     });
@@ -466,9 +564,23 @@ const acceptInviteByToken = async (req, res) => {
   try {
     const { token } = req.body;
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET);
+    } catch (err) {
+      return res.status(401).json({
+        message: "Invalid or expired invite token",
+      });
+    }
 
-    const { user, workspaceId, role } = decoded;
+    const { user: tokenUserId, workspaceId, role } = decoded;
+
+    // Security fix: Verify the token's target user matches the authenticated user
+    if (tokenUserId.toString() !== req.user._id.toString()) {
+      return res.status(403).json({
+        message: "This invite was not issued for your account",
+      });
+    }
 
     const workspace = await Workspace.findById(workspaceId);
 
@@ -479,17 +591,17 @@ const acceptInviteByToken = async (req, res) => {
     }
 
     const isMember = workspace.members.some(
-      (member) => member.user.toString() === user.toString()
+      (member) => member.user.toString() === req.user._id.toString()
     );
 
     if (isMember) {
       return res.status(400).json({
-        message: "User already a member of this workspace",
+        message: "You are already a member of this workspace",
       });
     }
 
     const inviteInfo = await WorkspaceInvite.findOne({
-      user: user,
+      user: req.user._id,
       workspaceId: workspaceId,
     });
 
@@ -506,7 +618,7 @@ const acceptInviteByToken = async (req, res) => {
     }
 
     workspace.members.push({
-      user: user,
+      user: req.user._id,
       role: role || "member",
       joinedAt: new Date(),
     });
@@ -515,7 +627,7 @@ const acceptInviteByToken = async (req, res) => {
 
     await Promise.all([
       WorkspaceInvite.deleteOne({ _id: inviteInfo._id }),
-      recordActivity(user, "joined_workspace", "Workspace", workspaceId, {
+      recordActivity(req.user._id, "joined_workspace", "Workspace", workspaceId, {
         description: `Joined ${workspace.name} workspace`,
       }),
     ]);
@@ -524,19 +636,81 @@ const acceptInviteByToken = async (req, res) => {
       message: "Invitation accepted successfully",
     });
   } catch (error) {
-    console.log(error);
+    console.error(error);
     res.status(500).json({
       message: "Internal server error",
     });
   }
 };
+// Get workspace public info for invitation page
+const getWorkspaceInviteInfo = async (req, res) => {
+  try {
+    const { workspaceId } = req.params;
+    const { tk, jt } = req.query;
+
+    if (!tk && !jt) {
+      return res.status(400).json({
+        message: "Invitation token or join token is required",
+      });
+    }
+
+    const workspace = await Workspace.findById(workspaceId);
+
+    if (!workspace) {
+      return res.status(404).json({
+        message: "Workspace not found",
+      });
+    }
+
+    // Validate tokens to ensure caller has a valid link
+    if (tk) {
+      try {
+        const decoded = jwt.verify(tk, process.env.JWT_SECRET);
+        if (decoded.workspaceId !== workspaceId) {
+          throw new Error("Invalid workspace ID in token");
+        }
+      } catch (err) {
+        return res.status(401).json({
+          message: "Invalid or expired invite token",
+        });
+      }
+    } else if (jt) {
+      try {
+        const decoded = jwt.verify(jt, process.env.JWT_SECRET);
+        if (decoded.purpose !== "workspace-join" || decoded.workspaceId !== workspaceId) {
+          throw new Error("Invalid join link");
+        }
+      } catch (err) {
+        return res.status(401).json({
+          message: "Invalid or expired join link",
+        });
+      }
+    }
+
+    // Return only necessary info
+    res.status(200).json({
+      _id: workspace._id,
+      name: workspace.name,
+      description: workspace.description,
+      color: workspace.color,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      message: "Internal server error",
+    });
+  }
+};
+
 export {
   createWorkspace,
   getWorkspaces,
   getWorkspaceDetails,
+  getWorkspaceInviteInfo,
   getWorkspaceProjects,
   getWorkspaceStats,
   inviteUserToWorkspace,
+  generateJoinToken,
   acceptGenerateInvite,
   acceptInviteByToken,
 };

@@ -1,4 +1,4 @@
-import type { TaskPriority, TaskStatus } from "@/types";
+import type { TaskPriority } from "@/types";
 import {
   Select,
   SelectContent,
@@ -6,20 +6,23 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../ui/select";
-import {
-  useUpdateTaskPriorityMutation,
-  useUpdateTaskStatusMutation,
-} from "@/hooks/use-task";
+import { useUpdateTaskPriorityMutation } from "@/hooks/use-task";
 import { toast } from "sonner";
+import { useAuth } from "@/provider/auth-context";
 
 export const TaskPrioritySelector = ({
   priority,
   taskId,
+  isEvaluated,
 }: {
   priority: TaskPriority;
   taskId: string;
+  isEvaluated: boolean;
 }) => {
+  const { user } = useAuth();
   const { mutate, isPending } = useUpdateTaskPriorityMutation();
+
+  const isDisabled = isPending || (isEvaluated && user?.role === "student");
 
   const handleStatusChange = (value: string) => {
     mutate(
@@ -38,7 +41,7 @@ export const TaskPrioritySelector = ({
   };
   return (
     <Select value={priority || ""} onValueChange={handleStatusChange}>
-      <SelectTrigger className="w-[180px]" disabled={isPending}>
+      <SelectTrigger className="w-[180px]" disabled={isDisabled}>
         <SelectValue placeholder="Priority" />
       </SelectTrigger>
 

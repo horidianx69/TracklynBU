@@ -28,6 +28,14 @@ const createProject = async (req, res) => {
 
     const tagArray = tags ? tags.split(",") : [];
 
+    // Phase 4.1: Fix isApproved bypass for students
+    let projectIsApproved = isApproved || false;
+    if (req.user.role === "student") {
+      projectIsApproved = false; // Students can ONLY request projects
+    } else if (req.user.role === "faculty" || req.user.role === "admin") {
+      projectIsApproved = true; // Faculty/admin projects are auto-approved
+    }
+
     const newProject = await Project.create({
       title,
       description,
@@ -36,9 +44,9 @@ const createProject = async (req, res) => {
       dueDate,
       tags: tagArray,
       workspace: workspaceId,
-      members,
+      members: members || [],
       createdBy: req.user._id,
-      isApproved: isApproved || false,
+      isApproved: projectIsApproved,
     });
 
     workspace.projects.push(newProject._id);

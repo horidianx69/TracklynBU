@@ -22,7 +22,7 @@ import { useAuth } from "@/provider/auth-context";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2 } from "lucide-react";
 import { useForm } from "react-hook-form";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { z } from "zod";
 
@@ -30,7 +30,10 @@ type SigninFormData = z.infer<typeof signInSchema>;
 
 const SignIn = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { login } = useAuth();
+  
+  const redirectPath = searchParams.get("redirect") || undefined;
 
   const form = useForm<SigninFormData>({
     resolver: zodResolver(signInSchema),
@@ -44,10 +47,9 @@ const SignIn = () => {
   const handleOnSubmit = (values: SigninFormData) => {
     mutate(values, {
       onSuccess: (data) => {
-        login(data);
+        login(data, redirectPath);
         console.log(data);
         toast.success("Login successful");
-        navigate("/dashboard");
       },
       onError: (error: any) => {
         const errorMessage =

@@ -5,6 +5,12 @@ import Project from "../models/project.js";
 import Task from "../models/task.js";
 import Workspace from "../models/workspace.js";
 
+// Helper for Phase 3: Check if the user is allowed to edit a potentially evaluated task
+const canEditTask = (task, userRole) => {
+  if (!task.isEvaluated) return true;
+  return userRole === "faculty" || userRole === "admin";
+};
+
 const createTask = async (req, res) => {
   try {
     const { projectId } = req.params;
@@ -119,6 +125,12 @@ const updateTaskTitle = async (req, res) => {
       });
     }
 
+    if (!canEditTask(task, req.user.role)) {
+      return res.status(403).json({
+        message: "This task has been evaluated and is locked for students",
+      });
+    }
+
     const oldTitle = task.title;
 
     task.title = title;
@@ -165,6 +177,12 @@ const updateTaskDescription = async (req, res) => {
     if (!isMember) {
       return res.status(403).json({
         message: "You are not a member of this project",
+      });
+    }
+
+    if (!canEditTask(task, req.user.role)) {
+      return res.status(403).json({
+        message: "This task has been evaluated and is locked for students",
       });
     }
 
@@ -222,6 +240,14 @@ const updateTaskStatus = async (req, res) => {
       });
     }
 
+    if (!canEditTask(task, req.user.role)) {
+      return res.status(403).json({
+        message: "This task has been evaluated and is locked for students",
+      });
+    }
+
+    // Phase 3: Additional guard just in case - even if faculty, warn if moving evaluated task from Done?
+    // The requirement only says role-based task edit permissions. The `canEditTask` covers students.
     const oldStatus = task.status;
 
     task.status = status;
@@ -271,14 +297,18 @@ const updateTaskAssignees = async (req, res) => {
       });
     }
 
-    const oldAssignees = task.assignees;
+    if (!canEditTask(task, req.user.role)) {
+      return res.status(403).json({
+        message: "This task has been evaluated and is locked for students",
+      });
+    }
 
     task.assignees = assignees;
     await task.save();
 
     // record activity
     await recordActivity(req.user._id, "updated_task", "Task", taskId, {
-      description: `updated task assignees from ${oldAssignees.length} to ${assignees.length}`,
+      description: `updated task assignees`,
     });
 
     res.status(200).json(task);
@@ -317,6 +347,12 @@ const updateTaskPriority = async (req, res) => {
     if (!isMember) {
       return res.status(403).json({
         message: "You are not a member of this project",
+      });
+    }
+
+    if (!canEditTask(task, req.user.role)) {
+      return res.status(403).json({
+        message: "This task has been evaluated and is locked for students",
       });
     }
 
@@ -370,6 +406,12 @@ const addSubTask = async (req, res) => {
       });
     }
 
+    if (!canEditTask(task, req.user.role)) {
+      return res.status(403).json({
+        message: "This task has been evaluated and is locked for students",
+      });
+    }
+
     const newSubTask = {
       title,
       completed: false,
@@ -406,9 +448,31 @@ const updateSubTask = async (req, res) => {
       });
     }
 
-    const subTask = task.subtasks.find(
-      (subTask) => subTask._id.toString() === subTaskId
+    const project = await Project.findById(task.project);
+
+    if (!project) {
+      return res.status(404).json({
+        message: "Project not found",
+      });
+    }
+
+    const isMember = project.members.some(
+      (member) => member.user.toString() === req.user._id.toString()
     );
+
+    if (!isMember) {
+      return res.status(403).json({
+        message: "You are not a member of this project",
+      });
+    }
+
+    if (!canEditTask(task, req.user.role)) {
+      return res.status(403).json({
+        message: "This task has been evaluated and is locked for students",
+      });
+    }
+
+    const subTask = task.subtasks.id(subTaskId);
 
     if (!subTask) {
       return res.status(404).json({
@@ -441,6 +505,32 @@ const getActivityByResourceId = async (req, res) => {
       .populate("user", "name profilePicture")
       .sort({ createdAt: -1 });
 
+    // Phase 3.5: Access control check for activity feed
+    // If the resource is a task, verify project membership
+    const task = await Task.findById(resourceId);
+    if (task) {
+      const project = await Project.findById(task.project);
+      if (project) {
+        const isMember = project.members.some(
+          (m) => m.user.toString() === req.user._id.toString()
+        );
+        if (!isMember) {
+          return res.status(403).json({ message: "Access denied" });
+        }
+      }
+    } else {
+      // If the resource is a workspace, verify workspace membership
+      const workspace = await Workspace.findById(resourceId);
+      if (workspace) {
+        const isMember = workspace.members.some(
+          (m) => m.user.toString() === req.user._id.toString()
+        );
+        if (!isMember) {
+          return res.status(403).json({ message: "Access denied" });
+        }
+      }
+    }
+
     res.status(200).json(activity);
   } catch (error) {
     console.log(error);
@@ -453,6 +543,25 @@ const getActivityByResourceId = async (req, res) => {
 const getCommentsByTaskId = async (req, res) => {
   try {
     const { taskId } = req.params;
+
+    const task = await Task.findById(taskId);
+    if (!task) {
+      return res.status(404).json({ message: "Task not found" });
+    }
+
+    // Phase 3.5: Access control check for reading comments
+    const project = await Project.findById(task.project);
+    if (!project) {
+      return res.status(404).json({ message: "Project not found" });
+    }
+
+    const isMember = project.members.some(
+      (m) => m.user.toString() === req.user._id.toString()
+    );
+
+    if (!isMember) {
+      return res.status(403).json({ message: "Access denied" });
+    }
 
     const comments = await Comment.find({ task: taskId })
       .populate("author", "name profilePicture")
@@ -610,6 +719,13 @@ const achievedTask = async (req, res) => {
         message: "You are not a member of this project",
       });
     }
+
+    if (!canEditTask(task, req.user.role)) {
+      return res.status(403).json({
+        message: "This task has been evaluated and is locked for students",
+      });
+    }
+
     const isAchieved = task.isArchived;
 
     task.isArchived = !isAchieved;
@@ -685,9 +801,29 @@ const updateTaskMarks = async (req, res) => {
       });
     }
 
+    // Phase 3: Only faculty/admin can evaluate tasks
+    if (req.user.role !== "faculty" && req.user.role !== "admin") {
+      return res.status(403).json({
+        message: "Only faculty members can assign marks",
+      });
+    }
+
+    // Phase 3: 40-mark cap per project validation
+    const projectTasks = await Task.find({ project: project._id });
+    const currentTotalMarks = projectTasks
+      .filter((t) => t._id.toString() !== task._id.toString())
+      .reduce((sum, t) => sum + (t.marks || 0), 0);
+
+    if (currentTotalMarks + marks > 40) {
+      return res.status(400).json({
+        message: `Project total marks cap (40) exceeded. Assigning ${marks} to this task results in a total of ${currentTotalMarks + marks} across all project tasks.`,
+      });
+    }
+
     const oldMarks = task.marks || 0;
 
     task.marks = marks;
+    task.isEvaluated = true; // Lock the task after initial marking
     await task.save();
 
     // record activity
@@ -739,6 +875,13 @@ const updateTaskScore = async (req, res) => {
     if (!isMember) {
       return res.status(403).json({
         message: "You are not a member of this project",
+      });
+    }
+
+    // Phase 3: Only faculty/admin can evaluate tasks
+    if (req.user.role !== "faculty" && req.user.role !== "admin") {
+      return res.status(403).json({
+        message: "Only faculty members can assign scores",
       });
     }
 

@@ -137,7 +137,7 @@ export const CreateProjectDialog = ({
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[540px]">
         <DialogHeader>
-          <DialogTitle>Create Project</DialogTitle>
+          <DialogTitle>{user?.role === "student" ? "Request Project" : "Create Project"}</DialogTitle>
           <DialogDescription>
             Create a new project to get started
           </DialogDescription>
@@ -402,7 +402,7 @@ export const CreateProjectDialog = ({
 
             <DialogFooter>
               <Button type="submit" disabled={isPending}>
-                {isPending ? "Creating..." : "Create Project"}
+                {isPending ? (user?.role === "student" ? "Requesting..." : "Creating...") : (user?.role === "student" ? "Request Project" : "Create Project")}
               </Button>
             </DialogFooter>
           </form>

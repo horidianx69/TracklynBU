@@ -2,6 +2,8 @@ export interface User {
   _id: string;
   email: string;
   name: string;
+  role: "student" | "faculty" | "admin";
+  isApproved: boolean;
   createdAt: Date;
   isEmailVerified: boolean;
   updatedAt: Date;
@@ -84,6 +86,7 @@ export interface Task {
   attachments?: Attachment[];
   marks?: number;
   score?: number;
+  isEvaluated?: boolean;
 }
 
 export interface Attachment {

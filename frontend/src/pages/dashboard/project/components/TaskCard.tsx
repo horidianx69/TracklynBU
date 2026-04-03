@@ -235,7 +235,7 @@ export const TaskCard = ({ task, onClick, currentUserRole }: TaskCardProps) => {
     data: {
       task,
     },
-    disabled: !isManager,
+    disabled: !isManager && task.isEvaluated,
   });
 
   const style = {
@@ -307,14 +307,14 @@ export const TaskCard = ({ task, onClick, currentUserRole }: TaskCardProps) => {
       ref={setNodeRef}
       style={style}
       {...attributes}
-      {...(isManager ? listeners : {})}
+      {...(isManager || !task.isEvaluated ? listeners : {})}
       onClick={(e) => {
         if ((e.target as HTMLElement).closest("button")) return;
-        if (isManager) {
+        if (isManager || !task.isEvaluated) {
           onClick();
         }
       }}
-      className={`${isManager ? "cursor-grab active:cursor-grabbing" : "cursor-default"} hover:shadow-md transition-all duration-300 gap-2 py-4`}
+      className={`${isManager || !task.isEvaluated ? "cursor-grab active:cursor-grabbing" : "cursor-default"} hover:shadow-md transition-all duration-300 gap-2 py-4`}
     >
       <CardHeader>
         <div className="flex items-center justify-between">
@@ -432,8 +432,8 @@ export const TaskCard = ({ task, onClick, currentUserRole }: TaskCardProps) => {
         )}
 
         <div className="flex justify-between items-center pt-2">
-          {isManager && <div className="text-xs text-muted-foreground">Click to Edit</div>}
-          {!isManager && <div className="text-xs text-muted-foreground">View Only</div>}
+          {(isManager || !task.isEvaluated) && <div className="text-xs text-muted-foreground">Click to Edit</div>}
+          {!isManager && task.isEvaluated && <div className="text-xs text-muted-foreground">View Only</div>}
           <div className="flex items-center gap-2">
             {task.status === "Done" ? (
               <>

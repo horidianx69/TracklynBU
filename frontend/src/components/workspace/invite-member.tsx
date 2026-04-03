@@ -4,14 +4,14 @@ import { inviteMemberSchema } from "@/lib/schema";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Form, FormControl, FormField, FormItem, FormLabel } from "../ui/form";
 import { Input } from "../ui/input";
 import { cn } from "@/lib/utils";
 import { Button } from "../ui/button";
-import { Check, Copy, Download, Mail } from "lucide-react";
+import { Check, Copy, Download, Loader2, Mail } from "lucide-react";
 import { Label } from "../ui/label";
-import { useInviteMemberMutation } from "@/hooks/use-workspace";
+import { useInviteMemberMutation, useGenerateJoinTokenMutation } from "@/hooks/use-workspace";
 import { toast } from "sonner";
 import QRCode from "react-qr-code";
 
@@ -31,6 +31,7 @@ export const InviteMemberDialog = ({
 }: InviteMemberDialogProps) => {
   const [inviteTab, setInviteTab] = useState("email");
   const [linkCopied, setLinkCopied] = useState(false);
+  const [joinToken, setJoinToken] = useState<string | null>(null);
 
   const form = useForm<InviteMemberFormData>({
     resolver: zodResolver(inviteMemberSchema),
@@ -41,6 +42,28 @@ export const InviteMemberDialog = ({
   });
 
   const { mutate, isPending } = useInviteMemberMutation();
+  const { mutate: generateToken, isPending: isGeneratingToken } = useGenerateJoinTokenMutation();
+
+  // Generate join token when switching to link tab
+  useEffect(() => {
+    if (inviteTab === "link" && !joinToken && workspaceId) {
+      generateToken(workspaceId, {
+        onSuccess: (data: any) => {
+          setJoinToken(data.joinToken);
+        },
+        onError: () => {
+          toast.error("Failed to generate join link");
+        },
+      });
+    }
+  }, [inviteTab, joinToken, workspaceId]);
+
+  // Reset join token when dialog closes
+  useEffect(() => {
+    if (!isOpen) {
+      setJoinToken(null);
+    }
+  }, [isOpen]);
 
   const onSubmit = async (data: InviteMemberFormData) => {
     if (!workspaceId) return;
@@ -58,17 +81,19 @@ export const InviteMemberDialog = ({
           onOpenChange(false);
         },
         onError: (error: any) => {
-          toast.error(error.response.data.message);
-          console.log(error);
+          toast.error(error?.response?.data?.message || "Failed to send invite");
         },
       }
     );
   };
 
+  const inviteLink = joinToken
+    ? `${window.location.origin}/workspace-invite/${workspaceId}?jt=${joinToken}`
+    : "";
+
   const handleCopyInviteLink = () => {
-    navigator.clipboard.writeText(
-      `${window.location.origin}/workspace-invite/${workspaceId}`
-    );
+    if (!inviteLink) return;
+    navigator.clipboard.writeText(inviteLink);
     setLinkCopied(true);
 
     setTimeout(() => {
@@ -101,8 +126,6 @@ export const InviteMemberDialog = ({
 
     img.src = "data:image/svg+xml;base64," + btoa(svgData);
   };
-
-  const inviteLink = `${window.location.origin}/workspace-invite/${workspaceId}`;
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -202,51 +225,62 @@ export const InviteMemberDialog = ({
           <TabsContent value="link">
             <div className="grid gap-6">
               <div className="flex flex-col items-center gap-4 p-6 bg-muted/30 rounded-lg">
-                <div className="bg-white p-4 rounded-lg shadow-sm">
-                  <QRCode
-                    id="qr-code-svg"
-                    value={inviteLink}
-                    size={200}
-                    level="H"
-                  />
-                </div>
-                <p className="text-sm text-muted-foreground text-center">
-                  Scan with your phone camera to join
-                </p>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleDownloadQRCode}
-                  disabled={isPending}
-                >
-                  <Download className="mr-2 h-4 w-4" />
-                  Download QR Code
-                </Button>
+                {isGeneratingToken || !joinToken ? (
+                  <div className="flex flex-col items-center gap-2 py-8">
+                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                    <p className="text-sm text-muted-foreground">Generating secure join link...</p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="bg-white p-4 rounded-lg shadow-sm">
+                      <QRCode
+                        id="qr-code-svg"
+                        value={inviteLink}
+                        size={200}
+                        level="H"
+                      />
+                    </div>
+                    <p className="text-sm text-muted-foreground text-center">
+                      Scan with your phone camera to join
+                    </p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleDownloadQRCode}
+                      disabled={isPending}
+                    >
+                      <Download className="mr-2 h-4 w-4" />
+                      Download QR Code
+                    </Button>
+                  </>
+                )}
               </div>
 
               {/* Link Section */}
-              <div className="grid gap-2">
-                <Label>Or share this link</Label>
-                <div className="flex items-center space-x-2">
-                  <Input readOnly value={inviteLink} />
-                  <Button onClick={handleCopyInviteLink} disabled={isPending}>
-                    {linkCopied ? (
-                      <>
-                        <Check className="mr-2 h-4 w-4" />
-                        Copied
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="mr-2 h-4 w-4" />
-                        Copy
-                      </>
-                    )}
-                  </Button>
+              {joinToken && (
+                <div className="grid gap-2">
+                  <Label>Or share this link</Label>
+                  <div className="flex items-center space-x-2">
+                    <Input readOnly value={inviteLink} />
+                    <Button onClick={handleCopyInviteLink} disabled={isPending}>
+                      {linkCopied ? (
+                        <>
+                          <Check className="mr-2 h-4 w-4" />
+                          Copied
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="mr-2 h-4 w-4" />
+                          Copy
+                        </>
+                      )}
+                    </Button>
+                  </div>
                 </div>
-              </div>
+              )}
 
               <p className="text-sm text-muted-foreground">
-                Anyone with the link can join this workspace
+                This join link expires in 24 hours
               </p>
             </div>
           </TabsContent>
@@ -255,3 +289,4 @@ export const InviteMemberDialog = ({
     </Dialog>
   );
 };
+

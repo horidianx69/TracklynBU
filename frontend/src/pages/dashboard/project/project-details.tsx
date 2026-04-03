@@ -58,7 +58,9 @@ const ProjectDetails = () => {
   const projectProgress = getProjectProgress(tasks);
 
   const { user } = useAuth();
-  const currentUser = project.members.find((member) => member.user._id === user?._id)
+  const currentUser = project.members.find((member) => 
+    (typeof member.user === "string" ? member.user : member.user._id) === user?._id
+  )
   const currentUserRole = currentUser?.role
 
 
@@ -67,10 +69,11 @@ const ProjectDetails = () => {
   };
 
   const handleDragStart = (event: DragStartEvent) => {
-    // Only allow managers to drag tasks
-    if (currentUserRole !== "manager") return;
-    
     const task = tasks.find((t) => t._id === event.active.id);
+    
+    // Check if task is evaluated and user is not a manager
+    if (!project || (task?.isEvaluated && currentUserRole !== "manager")) return;
+    
     setActiveTask(task || null);
   };
 
@@ -78,14 +81,14 @@ const ProjectDetails = () => {
     const { active, over } = event;
     setActiveTask(null);
 
-    // Only allow managers to drop tasks
-    if (currentUserRole !== "manager") return;
-
     if (!over) return;
 
     const taskId = active.id as string;
     const newStatus = over.id as TaskStatus;
     const task = tasks.find((t) => t._id === taskId);
+    
+    // Check if task is evaluated and user is not a manager
+    if (!task || (task.isEvaluated && currentUserRole !== "manager")) return;
 
     if (!task || task.status === newStatus) return;
 
