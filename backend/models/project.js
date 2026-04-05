@@ -39,6 +39,14 @@ const projectSchema = new Schema(
     createdBy: { type: Schema.Types.ObjectId, ref: "User", required: true },
     isArchived: { type: Boolean, default: false },
     isApproved: { type: Boolean, default: false },
+    isFullyGraded: { type: Boolean, default: false },
+    studentScores: [
+      {
+        student: { type: Schema.Types.ObjectId, ref: "User" },
+        totalMarks: { type: Number, default: 0 },
+      },
+    ],
+    gradingRubric: { type: String, default: "" },
   },
   { timestamps: true }
 );

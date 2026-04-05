@@ -51,6 +51,12 @@ export interface Project {
   updatedAt: Date;
   isArchived: boolean;
   isApproved: boolean;
+  isFullyGraded?: boolean;
+  studentScores?: {
+    student: User;
+    totalMarks: number;
+  }[];
+  gradingRubric?: string;
 }
 export type TaskStatus = "To Do" | "In Progress" | "Done";
 export type TaskPriority = "High" | "Medium" | "Low";

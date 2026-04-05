@@ -22,7 +22,7 @@ export const useGetWorkspaceQuery = (workspaceId?: string) => {
   return useQuery({
     queryKey: ["workspace", workspaceId],
     queryFn: async () => fetchData(`/workspaces/${workspaceId}/projects`),
-    enabled: !!workspaceId, // ⛔ Prevents API call when ID is null/undefined
+    enabled: !!workspaceId,
   });
 };
 
@@ -97,3 +97,21 @@ export const useAcceptGenerateInviteMutation = () => {
   });
 };
 
+// --- Get Workspace Leaderboard ---
+export const useGetWorkspaceLeaderboardQuery = (workspaceId?: string) => {
+  return useQuery({
+    queryKey: ["workspace", workspaceId, "leaderboard"],
+    queryFn: async () => fetchData(`/workspaces/${workspaceId}/leaderboard`),
+    enabled: !!workspaceId,
+  });
+};
+
+// --- Get Student Progress (Cross-Workspace) ---
+export const useGetStudentProgressQuery = (email?: string) => {
+  return useQuery({
+    queryKey: ["student-progress", email],
+    queryFn: async () =>
+      fetchData(`/workspaces/student-progress/search?email=${encodeURIComponent(email!)}`),
+    enabled: !!email && email.length > 0,
+  });
+};

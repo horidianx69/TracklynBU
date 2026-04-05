@@ -11,6 +11,8 @@ import {
   getWorkspaces,
   getWorkspaceStats,
   inviteUserToWorkspace,
+  getWorkspaceLeaderboard,
+  getStudentProgress,
 } from "../controllers/workspace.js";
 import {
   inviteMemberSchema,
@@ -65,10 +67,12 @@ router.post(
 );
 
 router.get("/", authMiddleware, getWorkspaces);
+router.get("/student-progress/search", authMiddleware, getStudentProgress);
 
 router.get("/:workspaceId", authMiddleware, getWorkspaceDetails);
 router.get("/:workspaceId/invite-info", getWorkspaceInviteInfo);
 router.get("/:workspaceId/projects", authMiddleware, getWorkspaceProjects);
 router.get("/:workspaceId/stats", authMiddleware, getWorkspaceStats);
+router.get("/:workspaceId/leaderboard", authMiddleware, getWorkspaceLeaderboard);
 
 export default router;

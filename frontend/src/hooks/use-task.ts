@@ -1,5 +1,5 @@
 import type { CreateTaskFormData } from "@/components/task/create-task-dialog";
-import { fetchData, postData, updateData } from "@/lib/fetch-util";
+import { fetchData, postData, updateData, deleteData } from "@/lib/fetch-util";
 import type { TaskPriority, TaskStatus } from "@/types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
@@ -262,23 +262,47 @@ export const useUpdateTaskMarksMutation = () => {
   });
 };
 
-export const useUpdateTaskScoreMutation = () => {
+export const useDeleteTaskMutation = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (data: { taskId: string; score: number; projectId: string }) =>
-      updateData(`/tasks/${data.taskId}/score`, { score: data.score }),
+    mutationFn: (data: { taskId: string; projectId: string }) =>
+      deleteData(`/tasks/${data.taskId}`),
     onSuccess: (_data: any, variables) => {
-      queryClient.invalidateQueries({
-        queryKey: ["task", variables.taskId],
-      });
-
+      // Invalidate project tasks to remove the deleted task from list
       queryClient.invalidateQueries({
         queryKey: ["project", variables.projectId],
       });
-
+      // Invalidate the task itself
       queryClient.invalidateQueries({
-        queryKey: ["task-activity", variables.taskId],
+        queryKey: ["task", variables.taskId],
+      });
+    },
+  });
+};
+
+export const useSmartGradeMutation = () => {
+  return useMutation({
+    mutationFn: (data: { projectId: string }) =>
+      postData(`/tasks/${data.projectId}/smart-grade`, {}),
+  });
+};
+
+export const useApplySmartGradeMutation = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (data: {
+      projectId: string;
+      evaluations: { taskId: string; marks: number }[];
+    }) =>
+      postData(`/tasks/${data.projectId}/apply-smart-grade`, {
+        evaluations: data.evaluations,
+      }),
+    onSuccess: (_data: any, variables) => {
+      // Invalidate the project tasks list
+      queryClient.invalidateQueries({
+        queryKey: ["project", variables.projectId],
       });
     },
   });

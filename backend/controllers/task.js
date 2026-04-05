@@ -801,34 +801,53 @@ const updateTaskMarks = async (req, res) => {
       });
     }
 
-    // Phase 3: Only faculty/admin can evaluate tasks
+    // Only faculty/admin can set marks
     if (req.user.role !== "faculty" && req.user.role !== "admin") {
       return res.status(403).json({
         message: "Only faculty members can assign marks",
       });
     }
 
-    // Phase 3: 40-mark cap per project validation
-    const projectTasks = await Task.find({ project: project._id });
-    const currentTotalMarks = projectTasks
-      .filter((t) => t._id.toString() !== task._id.toString())
-      .reduce((sum, t) => sum + (t.marks || 0), 0);
-
-    if (currentTotalMarks + marks > 40) {
+    // Task must be in Done status
+    if (task.status !== "Done") {
       return res.status(400).json({
-        message: `Project total marks cap (40) exceeded. Assigning ${marks} to this task results in a total of ${currentTotalMarks + marks} across all project tasks.`,
+        message: "Marks can only be given when the task is in 'Done' status.",
       });
     }
 
     const oldMarks = task.marks || 0;
 
     task.marks = marks;
-    task.isEvaluated = true; // Lock the task after initial marking
+    task.isEvaluated = true;
     await task.save();
+
+    // Check if all tasks in the project are now evaluated
+    const updatedProjectTasks = await Task.find({ project: project._id, isArchived: false });
+    const allGraded = updatedProjectTasks.length > 0 && updatedProjectTasks.every((t) => t.isEvaluated);
+
+    if (allGraded) {
+      const scoresMap = {};
+      updatedProjectTasks.forEach((t) => {
+        t.assignees.forEach((studentId) => {
+          const sid = studentId.toString();
+          if (!scoresMap[sid]) scoresMap[sid] = 0;
+          scoresMap[sid] += t.marks || 0;
+        });
+      });
+
+      const studentScores = Object.keys(scoresMap).map((sid) => ({
+        student: sid,
+        totalMarks: scoresMap[sid],
+      }));
+
+      project.studentScores = studentScores;
+      project.isFullyGraded = true;
+      await project.save();
+    }
 
     // record activity
     await recordActivity(req.user._id, "updated_task", "Task", taskId, {
-      description: `updated task marks from ${oldMarks} to ${marks}`,
+      description: `graded task: ${marks} marks`,
     });
 
     res.status(200).json(task);
@@ -840,17 +859,9 @@ const updateTaskMarks = async (req, res) => {
   }
 };
 
-const updateTaskScore = async (req, res) => {
+const deleteTask = async (req, res) => {
   try {
     const { taskId } = req.params;
-    const { score } = req.body;
-
-    // Validate score
-    if (typeof score !== "number" || score < 0) {
-      return res.status(400).json({
-        message: "Score must be a number greater than or equal to 0",
-      });
-    }
 
     const task = await Task.findById(taskId);
 
@@ -878,36 +889,164 @@ const updateTaskScore = async (req, res) => {
       });
     }
 
-    // Phase 3: Only faculty/admin can evaluate tasks
+    // Only faculty/admin can delete tasks
     if (req.user.role !== "faculty" && req.user.role !== "admin") {
       return res.status(403).json({
-        message: "Only faculty members can assign scores",
+        message: "Only faculty members can delete tasks",
       });
     }
 
-    // Validate score against marks
-    if (score > task.marks) {
-      return res.status(400).json({
-        message: `Score cannot exceed total marks (${task.marks})`,
-      });
-    }
+    // Remove task from project tasks array
+    project.tasks = project.tasks.filter((tId) => tId.toString() !== taskId.toString());
+    await project.save();
 
-    const oldScore = task.score || 0;
+    await Task.findByIdAndDelete(taskId);
 
-    task.score = score;
-    await task.save();
-
-    // record activity
-    await recordActivity(req.user._id, "updated_task", "Task", taskId, {
-      description: `updated task score from ${oldScore} to ${score}`,
+    // Record activity on the project since the task is gone
+    await recordActivity(req.user._id, "deleted_task", "Project", project._id, {
+      description: `deleted task: ${task.title}`,
     });
 
-    res.status(200).json(task);
+    res.status(200).json({ message: "Task deleted successfully" });
   } catch (error) {
     console.log(error);
     return res.status(500).json({
       message: "Internal server error",
     });
+  }
+};
+
+import { smartGrade } from "../libs/gemini.js";
+
+const smartGradeProject = async (req, res) => {
+  try {
+    const { projectId } = req.params;
+
+    // 1. Verify access
+    const project = await Project.findById(projectId).populate("members.user");
+    if (!project) {
+      return res.status(404).json({ message: "Project not found" });
+    }
+
+    if (req.user.role !== "faculty" && req.user.role !== "admin") {
+      return res.status(403).json({ message: "Only faculty can trigger smart grading" });
+    }
+
+    // 2. Fetch ungraded, "Done" tasks
+    const tasks = await Task.find({
+      project: projectId,
+      status: "Done",
+      isEvaluated: false,
+    }).populate("assignees", "name email");
+
+    if (tasks.length === 0) {
+      return res.status(400).json({ message: "No ungraded 'Done' tasks found for this project." });
+    }
+
+    // 3. Group tasks by student
+    const groupedData = {};
+    for (const task of tasks) {
+      for (const assignee of task.assignees) {
+        if (!groupedData[assignee._id]) {
+          groupedData[assignee._id] = {
+            studentName: assignee.name,
+            tasks: [],
+          };
+        }
+        
+        const completedSubtasks = task.subtasks.filter(st => st.completed).length;
+        
+        groupedData[assignee._id].tasks.push({
+          taskId: task._id,
+          title: task.title,
+          description: task.description || "",
+          subtasksTotal: task.subtasks.length,
+          subtasksCompleted: completedSubtasks,
+          taskTags: task.tags || [],
+        });
+      }
+    }
+
+    // 4. Send to Gemini
+    const aiResults = await smartGrade(project.gradingRubric, groupedData, project.title);
+
+    // 5. Merge AI results with task basic info so frontend has everything
+    const enrichedResults = aiResults.map(aiEval => {
+      const dbTask = tasks.find(t => t._id.toString() === aiEval.taskId);
+      return {
+        ...aiEval,
+        taskTitle: dbTask?.title,
+        assigneeNames: dbTask?.assignees.map(a => a.name).join(", "),
+      };
+    }).filter(r => r.taskTitle); // Ensure we only return valid task ids
+
+    res.status(200).json({ evaluations: enrichedResults });
+
+  } catch (error) {
+    console.error("Smart Grade Error:", error);
+    res.status(500).json({ message: error.message || "Failed to generate AI grades" });
+  }
+};
+
+const applySmartGrade = async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const { evaluations } = req.body; // Array of { taskId, marks }
+
+    if (!Array.isArray(evaluations)) {
+      return res.status(400).json({ message: "Invalid evaluations format" });
+    }
+
+    if (req.user.role !== "faculty" && req.user.role !== "admin") {
+      return res.status(403).json({ message: "Only faculty can apply grades" });
+    }
+
+    const project = await Project.findById(projectId);
+    if (!project) return res.status(404).json({ message: "Project not found" });
+
+    // Update all tasks
+    const operations = evaluations.map(ev => ({
+      updateOne: {
+        filter: { _id: ev.taskId, project: projectId },
+        update: { $set: { marks: ev.marks, isEvaluated: true } }
+      }
+    }));
+
+    if (operations.length > 0) {
+      await Task.bulkWrite(operations);
+    }
+
+    // Now recalculate project totals 
+    // Wait for all updates
+    const allEvaluatedTasks = await Task.find({ project: projectId, isEvaluated: true, marks: { $exists: true } });
+    
+    const scoresMap = {};
+    for (const task of allEvaluatedTasks) {
+       for (const assignee of task.assignees) {
+         if (!scoresMap[assignee.toString()]) scoresMap[assignee.toString()] = 0;
+         scoresMap[assignee.toString()] += task.marks;
+       }
+    }
+
+    const newStudentScores = Object.keys(scoresMap).map(studentId => ({
+      student: studentId,
+      totalMarks: scoresMap[studentId]
+    }));
+
+    project.studentScores = newStudentScores;
+    
+    // Check if fully graded
+    const allTasks = await Task.find({ project: projectId });
+    const allScored = allTasks.length > 0 && allTasks.every(t => t.isEvaluated);
+    project.isFullyGraded = allScored;
+
+    await project.save();
+
+    res.status(200).json({ message: "Grades applied successfully" });
+
+  } catch (error) {
+    console.error("Apply Smart Grade Error:", error);
+    res.status(500).json({ message: "Internal server error applying grades" });
   }
 };
 
@@ -928,5 +1067,7 @@ export {
   achievedTask,
   getMyTasks,
   updateTaskMarks,
-  updateTaskScore,
+  deleteTask,
+  smartGradeProject,
+  applySmartGrade,
 };
