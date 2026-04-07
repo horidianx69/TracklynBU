@@ -57,6 +57,7 @@ export interface Project {
     totalMarks: number;
   }[];
   gradingRubric?: string;
+  aiReview?: AIReview;
 }
 export type TaskStatus = "To Do" | "In Progress" | "Done";
 export type TaskPriority = "High" | "Medium" | "Low";
@@ -197,4 +198,37 @@ export interface WorkspaceProductivityData {
   name: string;
   completed: number;
   total: number;
+}
+
+// ─── AI Review Types ─────────────────────────────────────────────────────────
+
+export type AIReviewStatus =
+  | "pending"
+  | "approved"
+  | "needs_review"
+  | "plagiarism_detected"
+  | "below_benchmark";
+
+export interface AIReviewBenchmark {
+  category: string;
+  description: string;
+  met: boolean;
+}
+
+export interface AISimilarProject {
+  projectId: string;
+  projectTitle: string;
+  similarityScore: number;
+  reasoning: string;
+}
+
+export interface AIReview {
+  status: AIReviewStatus;
+  plagiarismScore: number;
+  plagiarismThreshold: number;
+  similarProjects: AISimilarProject[];
+  benchmarks: AIReviewBenchmark[];
+  reviewComment: string;
+  benchmarkSummary: string;
+  reviewedAt: Date;
 }

@@ -916,6 +916,161 @@ const deleteTask = async (req, res) => {
   }
 };
 
+// import { smartGrade } from "../libs/gemini.js";
+
+// const smartGradeProject = async (req, res) => {
+//   try {
+//     const { projectId } = req.params;
+
+//     // 1. Verify access
+//     const project = await Project.findById(projectId).populate("members.user");
+//     if (!project) {
+//       return res.status(404).json({ message: "Project not found" });
+//     }
+
+//     if (req.user.role !== "faculty" && req.user.role !== "admin") {
+//       return res.status(403).json({ message: "Only faculty can trigger smart grading" });
+//     }
+
+//     // 2. Fetch ungraded, "Done" tasks
+//     const tasks = await Task.find({
+//       project: projectId,
+//       status: "Done",
+//       isEvaluated: false,
+//     }).populate("assignees", "name email");
+
+//     if (tasks.length === 0) {
+//       return res.status(400).json({ message: "No ungraded 'Done' tasks found for this project." });
+//     }
+
+//     // 3. Group tasks by student
+//     const groupedData = {};
+//     for (const task of tasks) {
+//       for (const assignee of task.assignees) {
+//         if (!groupedData[assignee._id]) {
+//           groupedData[assignee._id] = {
+//             studentName: assignee.name,
+//             tasks: [],
+//           };
+//         }
+        
+//         const completedSubtasks = task.subtasks.filter(st => st.completed).length;
+        
+//         groupedData[assignee._id].tasks.push({
+//           taskId: task._id,
+//           title: task.title,
+//           description: task.description || "",
+//           subtasksTotal: task.subtasks.length,
+//           subtasksCompleted: completedSubtasks,
+//           taskTags: task.tags || [],
+//         });
+//       }
+//     }
+
+//     // 4. Send to Gemini
+//     const aiResults = await smartGrade(project.gradingRubric, groupedData, project.title);
+
+//     // 5. Merge AI results with task basic info so frontend has everything
+//     const enrichedResults = aiResults.map(aiEval => {
+//       const dbTask = tasks.find(t => t._id.toString() === aiEval.taskId);
+//       return {
+//         ...aiEval,
+//         taskTitle: dbTask?.title,
+//         assigneeNames: dbTask?.assignees.map(a => a.name).join(", "),
+//       };
+//     }).filter(r => r.taskTitle); // Ensure we only return valid task ids
+
+//     res.status(200).json({ evaluations: enrichedResults });
+
+//   } catch (error) {
+//     console.error("Smart Grade Error:", error);
+//     res.status(500).json({ message: error.message || "Failed to generate AI grades" });
+//   }
+// };
+
+// const applySmartGrade = async (req, res) => {
+//   try {
+//     const { projectId } = req.params;
+//     const { evaluations } = req.body; // Array of { taskId, marks }
+
+//     if (!Array.isArray(evaluations)) {
+//       return res.status(400).json({ message: "Invalid evaluations format" });
+//     }
+
+//     if (req.user.role !== "faculty" && req.user.role !== "admin") {
+//       return res.status(403).json({ message: "Only faculty can apply grades" });
+//     }
+
+//     const project = await Project.findById(projectId);
+//     if (!project) return res.status(404).json({ message: "Project not found" });
+
+//     // Update all tasks
+//     const operations = evaluations.map(ev => ({
+//       updateOne: {
+//         filter: { _id: ev.taskId, project: projectId },
+//         update: { $set: { marks: ev.marks, isEvaluated: true } }
+//       }
+//     }));
+
+//     if (operations.length > 0) {
+//       await Task.bulkWrite(operations);
+//     }
+
+//     // Now recalculate project totals 
+//     // Wait for all updates
+//     const allEvaluatedTasks = await Task.find({ project: projectId, isEvaluated: true, marks: { $exists: true } });
+    
+//     const scoresMap = {};
+//     for (const task of allEvaluatedTasks) {
+//        for (const assignee of task.assignees) {
+//          if (!scoresMap[assignee.toString()]) scoresMap[assignee.toString()] = 0;
+//          scoresMap[assignee.toString()] += task.marks;
+//        }
+//     }
+
+//     const newStudentScores = Object.keys(scoresMap).map(studentId => ({
+//       student: studentId,
+//       totalMarks: scoresMap[studentId]
+//     }));
+
+//     project.studentScores = newStudentScores;
+    
+//     // Check if fully graded
+//     const allTasks = await Task.find({ project: projectId });
+//     const allScored = allTasks.length > 0 && allTasks.every(t => t.isEvaluated);
+//     project.isFullyGraded = allScored;
+
+//     await project.save();
+
+//     res.status(200).json({ message: "Grades applied successfully" });
+
+//   } catch (error) {
+//     console.error("Apply Smart Grade Error:", error);
+//     res.status(500).json({ message: "Internal server error applying grades" });
+//   }
+// };
+
+// export {
+//   createTask,
+//   getTaskById,
+//   updateTaskTitle,
+//   updateTaskDescription,
+//   updateTaskStatus,
+//   updateTaskAssignees,
+//   updateTaskPriority,
+//   addSubTask,
+//   updateSubTask,
+//   getActivityByResourceId,
+//   getCommentsByTaskId,
+//   addComment,
+//   watchTask,
+//   achievedTask,
+//   getMyTasks,
+//   updateTaskMarks,
+//   deleteTask,
+//   smartGradeProject,
+//   applySmartGrade,
+// };
 import { smartGrade } from "../libs/gemini.js";
 
 const smartGradeProject = async (req, res) => {
@@ -953,11 +1108,12 @@ const smartGradeProject = async (req, res) => {
             tasks: [],
           };
         }
-        
-        const completedSubtasks = task.subtasks.filter(st => st.completed).length;
-        
+
+        const completedSubtasks = task.subtasks.filter((st) => st.completed).length;
+
         groupedData[assignee._id].tasks.push({
-          taskId: task._id,
+          taskId: task._id,           // kept as taskId to match controller logic
+          _id: task._id,              // also include _id so gemini.js can find it
           title: task.title,
           description: task.description || "",
           subtasksTotal: task.subtasks.length,
@@ -967,18 +1123,25 @@ const smartGradeProject = async (req, res) => {
       }
     }
 
-    // 4. Send to Gemini
-    const aiResults = await smartGrade(project.gradingRubric, groupedData, project.title);
+    // 4. Convert grouped object to array before sending to AI
+    const tasksArray = Object.values(groupedData);
 
-    // 5. Merge AI results with task basic info so frontend has everything
-    const enrichedResults = aiResults.map(aiEval => {
-      const dbTask = tasks.find(t => t._id.toString() === aiEval.taskId);
-      return {
-        ...aiEval,
-        taskTitle: dbTask?.title,
-        assigneeNames: dbTask?.assignees.map(a => a.name).join(", "),
-      };
-    }).filter(r => r.taskTitle); // Ensure we only return valid task ids
+    // 5. Send to Groq AI
+    const aiResults = await smartGrade(project.gradingRubric, tasksArray, project.title);
+
+    // 6. Merge AI results with task basic info so frontend has everything
+    const enrichedResults = aiResults
+      .map((aiEval) => {
+        const dbTask = tasks.find(
+          (t) => t._id.toString() === aiEval.taskId?.toString()
+        );
+        return {
+          ...aiEval,
+          taskTitle: dbTask?.title,
+          assigneeNames: dbTask?.assignees.map((a) => a.name).join(", "),
+        };
+      })
+      .filter((r) => r.taskTitle); // Ensure we only return valid task ids
 
     res.status(200).json({ evaluations: enrichedResults });
 
@@ -1005,39 +1168,42 @@ const applySmartGrade = async (req, res) => {
     if (!project) return res.status(404).json({ message: "Project not found" });
 
     // Update all tasks
-    const operations = evaluations.map(ev => ({
+    const operations = evaluations.map((ev) => ({
       updateOne: {
         filter: { _id: ev.taskId, project: projectId },
-        update: { $set: { marks: ev.marks, isEvaluated: true } }
-      }
+        update: { $set: { marks: ev.marks, isEvaluated: true } },
+      },
     }));
 
     if (operations.length > 0) {
       await Task.bulkWrite(operations);
     }
 
-    // Now recalculate project totals 
-    // Wait for all updates
-    const allEvaluatedTasks = await Task.find({ project: projectId, isEvaluated: true, marks: { $exists: true } });
-    
+    // Recalculate project totals
+    const allEvaluatedTasks = await Task.find({
+      project: projectId,
+      isEvaluated: true,
+      marks: { $exists: true },
+    });
+
     const scoresMap = {};
     for (const task of allEvaluatedTasks) {
-       for (const assignee of task.assignees) {
-         if (!scoresMap[assignee.toString()]) scoresMap[assignee.toString()] = 0;
-         scoresMap[assignee.toString()] += task.marks;
-       }
+      for (const assignee of task.assignees) {
+        if (!scoresMap[assignee.toString()]) scoresMap[assignee.toString()] = 0;
+        scoresMap[assignee.toString()] += task.marks;
+      }
     }
 
-    const newStudentScores = Object.keys(scoresMap).map(studentId => ({
+    const newStudentScores = Object.keys(scoresMap).map((studentId) => ({
       student: studentId,
-      totalMarks: scoresMap[studentId]
+      totalMarks: scoresMap[studentId],
     }));
 
     project.studentScores = newStudentScores;
-    
+
     // Check if fully graded
     const allTasks = await Task.find({ project: projectId });
-    const allScored = allTasks.length > 0 && allTasks.every(t => t.isEvaluated);
+    const allScored = allTasks.length > 0 && allTasks.every((t) => t.isEvaluated);
     project.isFullyGraded = allScored;
 
     await project.save();

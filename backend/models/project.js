@@ -47,6 +47,39 @@ const projectSchema = new Schema(
       },
     ],
     gradingRubric: { type: String, default: "" },
+    aiReview: {
+      status: {
+        type: String,
+        enum: [
+          "pending",
+          "approved",
+          "needs_review",
+          "plagiarism_detected",
+          "below_benchmark",
+        ],
+        default: "pending",
+      },
+      plagiarismScore: { type: Number, min: 0, max: 100, default: 0 },
+      plagiarismThreshold: { type: Number, min: 0, max: 100, default: 70 },
+      similarProjects: [
+        {
+          projectId: { type: Schema.Types.ObjectId, ref: "Project" },
+          projectTitle: { type: String },
+          similarityScore: { type: Number },
+          reasoning: { type: String },
+        },
+      ],
+      benchmarks: [
+        {
+          category: { type: String },
+          description: { type: String },
+          met: { type: Boolean, default: false },
+        },
+      ],
+      reviewComment: { type: String, default: "" },
+      benchmarkSummary: { type: String, default: "" },
+      reviewedAt: { type: Date },
+    },
   },
   { timestamps: true }
 );
