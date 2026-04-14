@@ -44,7 +44,9 @@
 // });
 
 import dotenv from "dotenv";
-dotenv.config();
+if (process.env.NODE_ENV !== "production") {
+  dotenv.config();
+}
 
 import cors from "cors";
 import express from "express";
@@ -59,8 +61,9 @@ connectDB();
 const allowedOrigins = [
   "http://localhost:5173",
   "http://localhost:5174",
-  "http://localhost:5175"
-];
+  "http://localhost:5175",
+  process.env.FRONTEND_URL,
+].filter(Boolean);
 // ✅ Correct CORS setup
 // app.use(
 //   cors({
@@ -109,6 +112,10 @@ app.use((req, res) => {
   res.status(404).json({ message: "Not found" });
 });
 
-app.listen(PORT, () => {
-  console.log(`✅ Server running on port ${PORT}`);
-});
+if (process.env.NODE_ENV !== "production") {
+  app.listen(PORT, () => {
+    console.log(`✅ Server running on port ${PORT}`);
+  });
+}
+
+export default app;
