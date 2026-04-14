@@ -2,10 +2,10 @@ import type { ProjectMemberRole, Task, User } from "@/types";
 import { useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
 import { Button } from "../ui/button";
-import { Download } from "lucide-react";
 import { Checkbox } from "../ui/checkbox";
 import { useUpdateTaskAssigneesMutation } from "@/hooks/use-task";
 import { toast } from "sonner";
+import { useAuth } from "@/provider/auth-context";
 
 export const TaskAssigneesSelector = ({
   task,
@@ -16,23 +16,29 @@ export const TaskAssigneesSelector = ({
   assignees: User[];
   projectMembers: { user: User; role: ProjectMemberRole }[];
 }) => {
+  const { user } = useAuth();
   const [selectedIds, setSelectedIds] = useState<string[]>(
     assignees.map((assignee) => assignee._id)
   );
   const [dropDownOpen, setDropDownOpen] = useState(false);
   const { mutate, isPending } = useUpdateTaskAssigneesMutation();
 
+  const isDisabled = isPending || (task.isEvaluated && user?.role === "student");
+
   const handleSelectAll = () => {
+    if (isDisabled) return;
     const allIds = projectMembers.map((m) => m.user._id);
 
     setSelectedIds(allIds);
   };
 
   const handleUnSelectAll = () => {
+    if (isDisabled) return;
     setSelectedIds([]);
   };
 
   const handleSelect = (id: string) => {
+    if (isDisabled) return;
     let newSelected: string[] = [];
 
     if (selectedIds.includes(id)) {
@@ -45,6 +51,7 @@ export const TaskAssigneesSelector = ({
   };
 
   const handleSave = () => {
+    if (isDisabled) return;
     mutate(
       {
         taskId: task._id,
@@ -97,8 +104,9 @@ export const TaskAssigneesSelector = ({
       {/* dropdown */}
       <div className="relative">
         <button
-          className="text-sm text-muted-foreground w-full border rounded px-3 py-2 text-left bg-white"
-          onClick={() => setDropDownOpen(!dropDownOpen)}
+          className="text-sm text-muted-foreground w-full border rounded px-3 py-2 text-left bg-white disabled:opacity-50 disabled:cursor-not-allowed"
+          onClick={() => !isDisabled && setDropDownOpen(!dropDownOpen)}
+          disabled={isDisabled}
         >
           {selectedIds.length === 0
             ? "Select assignees"

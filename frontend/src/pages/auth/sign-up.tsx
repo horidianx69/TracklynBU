@@ -1,5 +1,4 @@
-import { signInSchema, signUpSchema } from "@/lib/schema";
-import React from "react";
+import { signUpSchema } from "@/lib/schema";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -24,6 +23,7 @@ import { Button } from "@/components/ui/button";
 import { Link, useNavigate } from "react-router-dom";
 import { useSignUpMutation } from "@/hooks/use-auth";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 export type SignupFormData = z.infer<typeof signUpSchema>;
 
@@ -36,17 +36,18 @@ const SignUp = () => {
       password: "",
       name: "",
       confirmPassword: "",
+      role: "student",
     },
   });
 
   const { mutate, isPending } = useSignUpMutation();
+  const selectedRole = form.watch("role");
 
   const handleOnSubmit = (values: SignupFormData) => {
     mutate(values, {
-      onSuccess: () => {
-        toast.success("Email Verification Required", {
-          description:
-            "Please check your email for a verification link. If you don't see it, please check your spam folder.",
+      onSuccess: (data: any) => {
+        toast.success("Account Created", {
+          description: data.message || "Please check your email for verification.",
         });
 
         form.reset();
@@ -55,7 +56,6 @@ const SignUp = () => {
       onError: (error: any) => {
         const errorMessage =
           error.response?.data?.message || "An error occurred";
-        console.log(error);
         toast.error(errorMessage);
       },
     });
@@ -78,6 +78,47 @@ const SignUp = () => {
               onSubmit={form.handleSubmit(handleOnSubmit)}
               className="space-y-6"
             >
+              {/* Role Selection */}
+              <FormField
+                control={form.control}
+                name="role"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>I am a...</FormLabel>
+                    <FormControl>
+                      <div className="flex gap-3">
+                        {(["student", "faculty"] as const).map((role) => (
+                          <label
+                            key={role}
+                            className={cn(
+                              "flex-1 flex items-center justify-center gap-2 p-3 rounded-lg border-2 cursor-pointer transition-all duration-200",
+                              field.value === role
+                                ? "border-blue-500 bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300 shadow-sm"
+                                : "border-muted hover:border-muted-foreground/30"
+                            )}
+                          >
+                            <input
+                              type="radio"
+                              value={role}
+                              className="hidden"
+                              checked={field.value === role}
+                              onChange={() => field.onChange(role)}
+                            />
+                            <span className="capitalize font-medium">{role}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </FormControl>
+                    {selectedRole === "faculty" && (
+                      <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                        ⚠️ Faculty accounts require admin approval before login.
+                      </p>
+                    )}
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
               <FormField
                 control={form.control}
                 name="email"
@@ -164,3 +205,4 @@ const SignUp = () => {
 };
 
 export default SignUp;
+

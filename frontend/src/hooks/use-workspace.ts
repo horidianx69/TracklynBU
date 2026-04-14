@@ -22,7 +22,7 @@ export const useGetWorkspaceQuery = (workspaceId?: string) => {
   return useQuery({
     queryKey: ["workspace", workspaceId],
     queryFn: async () => fetchData(`/workspaces/${workspaceId}/projects`),
-    enabled: !!workspaceId, // ⛔ Prevents API call when ID is null/undefined
+    enabled: !!workspaceId,
   });
 };
 
@@ -31,7 +31,7 @@ export const useGetWorkspaceStatsQuery = (workspaceId?: string) => {
   return useQuery({
     queryKey: ["workspace", workspaceId, "stats"],
     queryFn: async () => fetchData(`/workspaces/${workspaceId}/stats`),
-    enabled: !!workspaceId, // ✅ Safe conditional query
+    enabled: !!workspaceId,
   });
 };
 
@@ -40,7 +40,26 @@ export const useGetWorkspaceDetailsQuery = (workspaceId?: string) => {
   return useQuery({
     queryKey: ["workspace", workspaceId, "details"],
     queryFn: async () => fetchData(`/workspaces/${workspaceId}`),
-    enabled: !!workspaceId, // ✅ Avoids hitting /null
+    enabled: !!workspaceId,
+  });
+};
+
+// --- Get Workspace Invite Info (no membership required) ---
+export const useGetWorkspaceInviteInfoQuery = (workspaceId?: string, tk?: string, jt?: string) => {
+  return useQuery({
+    queryKey: ["workspace", workspaceId, "invite-info", tk, jt],
+    queryFn: async () => {
+      let url = `/workspaces/${workspaceId}/invite-info`;
+      const params = new URLSearchParams();
+      if (tk) params.append("tk", tk);
+      if (jt) params.append("jt", jt);
+      const queryString = params.toString();
+      if (queryString) url += `?${queryString}`;
+      
+      return fetchData(url);
+    },
+    enabled: !!workspaceId && (!!tk || !!jt),
+    retry: false,
   });
 };
 
@@ -60,11 +79,39 @@ export const useAcceptInviteByTokenMutation = () => {
   });
 };
 
-// --- Generate Accept Invite Link ---
-export const useAcceptGenerateInviteMutation = () => {
+// --- Generate Join Token (for QR/link sharing) ---
+export const useGenerateJoinTokenMutation = () => {
   return useMutation({
     mutationFn: (workspaceId: string) =>
-      postData(`/workspaces/${workspaceId}/accept-generate-invite`, {}),
+      postData(`/workspaces/${workspaceId}/generate-join-token`, {}),
   });
 };
 
+// --- Accept Generate Invite Link (with join token) ---
+export const useAcceptGenerateInviteMutation = () => {
+  return useMutation({
+    mutationFn: (data: { workspaceId: string; joinToken: string }) =>
+      postData(`/workspaces/${data.workspaceId}/accept-generate-invite`, {
+        joinToken: data.joinToken,
+      }),
+  });
+};
+
+// --- Get Workspace Leaderboard ---
+export const useGetWorkspaceLeaderboardQuery = (workspaceId?: string) => {
+  return useQuery({
+    queryKey: ["workspace", workspaceId, "leaderboard"],
+    queryFn: async () => fetchData(`/workspaces/${workspaceId}/leaderboard`),
+    enabled: !!workspaceId,
+  });
+};
+
+// --- Get Student Progress (Cross-Workspace) ---
+export const useGetStudentProgressQuery = (email?: string) => {
+  return useQuery({
+    queryKey: ["student-progress", email],
+    queryFn: async () =>
+      fetchData(`/workspaces/student-progress/search?email=${encodeURIComponent(email!)}`),
+    enabled: !!email && email.length > 0,
+  });
+};

@@ -42,16 +42,31 @@ export const SidebarComponent = ({
       href: "/my-tasks",
       icon: ListCheck,
     },
-    {
-      title: "Members",
-      href: `/members`,
-      icon: Users,
-    },
+    // Only show Members to Faculty and Admin
+    ...(user?.role !== "student"
+      ? [
+          {
+            title: "Members",
+            href: `/members`,
+            icon: Users,
+          },
+        ]
+      : []),
     {
       title: "Achieved",
       href: `/achieved`,
       icon: CheckCircle2,
     },
+    // Only show Faculty Requests to Admin
+    ...(user?.role === "admin"
+      ? [
+          {
+            title: "Faculty Requests",
+            href: "/admin/faculty-requests",
+            icon: Users,
+          },
+        ]
+      : []),
     {
       title: "Settings",
       href: "/settings",

@@ -8,6 +8,7 @@ import {
   addComment,
   addSubTask,
   createTask,
+  deleteTask,
   getActivityByResourceId,
   getCommentsByTaskId,
   getMyTasks,
@@ -16,7 +17,6 @@ import {
   updateTaskAssignees,
   updateTaskDescription,
   updateTaskMarks,
-  updateTaskScore,
   updateTaskPriority,
   updateTaskStatus,
   updateTaskTitle,
@@ -148,16 +148,6 @@ router.put(
   updateTaskMarks
 );
 
-router.put(
-  "/:taskId/score",
-  authMiddleware,
-  validateRequest({
-    params: z.object({ taskId: z.string() }),
-    body: z.object({ score: z.number().min(0) }),
-  }),
-  updateTaskScore
-);
-
 router.get(
   "/:taskId",
   authMiddleware,
@@ -186,4 +176,40 @@ router.get(
   }),
   getCommentsByTaskId
 );
+
+router.delete(
+  "/:taskId",
+  authMiddleware,
+  validateRequest({
+    params: z.object({ taskId: z.string() }),
+  }),
+  deleteTask
+);
+
+import { smartGradeProject, applySmartGrade } from "../controllers/task.js";
+
+router.post(
+  "/:projectId/smart-grade",
+  authMiddleware,
+  validateRequest({
+    params: z.object({ projectId: z.string() }),
+  }),
+  smartGradeProject
+);
+
+router.post(
+  "/:projectId/apply-smart-grade",
+  authMiddleware,
+  validateRequest({
+    params: z.object({ projectId: z.string() }),
+    body: z.object({ 
+      evaluations: z.array(z.object({
+        taskId: z.string(),
+        marks: z.number().min(0).max(100)
+      }))
+    }),
+  }),
+  applySmartGrade
+);
+
 export default router;

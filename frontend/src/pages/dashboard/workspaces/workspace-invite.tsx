@@ -11,19 +11,22 @@ import { WorkspaceAvatar } from "@/components/workspace/workspace-avatar";
 import {
   useAcceptGenerateInviteMutation,
   useAcceptInviteByTokenMutation,
-  useGetWorkspaceDetailsQuery,
+  useGetWorkspaceInviteInfoQuery,
 } from "@/hooks/use-workspace";
 import type { Workspace } from "@/types";
 import React from "react";
-import { useNavigate, useParams,useSearchParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { useAuth } from "@/provider/auth-context";
 import { toast } from "sonner";
 
 const WorkspaceInvite = () => {
   const { workspaceId } = useParams();
-
+  const location = useLocation();
+  const { isAuthenticated } = useAuth();
   const [searchParams] = useSearchParams();
 
   const token = searchParams.get("tk");
+  const joinToken = searchParams.get("jt");
 
   const navigate = useNavigate();
 
@@ -31,8 +34,10 @@ const WorkspaceInvite = () => {
     return <div>Workspace not found</div>;
   }
 
-  const { data: workspace, isLoading } = useGetWorkspaceDetailsQuery(
-    workspaceId!
+  const { data: workspace, isLoading } = useGetWorkspaceInviteInfoQuery(
+    workspaceId!,
+    token || undefined,
+    joinToken || undefined
   ) as { data: Workspace; isLoading: boolean };
 
   const {
@@ -48,6 +53,13 @@ const WorkspaceInvite = () => {
   const handleAcceptInvite = () => {
     if (!workspaceId) return;
 
+    if (!isAuthenticated) {
+      toast.info("Please sign in to accept the invitation");
+      const redirectUrl = encodeURIComponent(location.pathname + location.search);
+      navigate(`/sign-in?redirect=${redirectUrl}`);
+      return;
+    }
+
     if (token) {
       acceptInviteByToken(token, {
         onSuccess: () => {
@@ -55,19 +67,23 @@ const WorkspaceInvite = () => {
           navigate(`/workspaces/${workspaceId}`);
         },
         onError: (error: any) => {
-          toast.error(error.response.data.message);
-          console.log(error);
+          toast.error(error?.response?.data?.message || "Failed to accept invite");
         },
       });
     } else {
-      acceptGenerateInvite(workspaceId, {
+      // Get join token from URL (for QR/link invites)
+      if (!joinToken) {
+        toast.error("Invalid or expired join link");
+        return;
+      }
+
+      acceptGenerateInvite({ workspaceId, joinToken }, {
         onSuccess: () => {
           toast.success("Invitation accepted");
           navigate(`/workspaces/${workspaceId}`);
         },
         onError: (error: any) => {
-          toast.error(error.response.data.message);
-          console.log(error);
+          toast.error(error?.response?.data?.message || "Failed to accept invite");
         },
       });
     }

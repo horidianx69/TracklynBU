@@ -4,6 +4,7 @@ const registerSchema = z.object({
   name: z.string().min(3, "Name is required"),
   email: z.string().email("Invalid email address"),
   password: z.string().min(8, "Password must be at least 8 characters long"),
+  role: z.enum(["student", "faculty"]).default("student"),
 });
 
 const loginSchema = z.object({
@@ -32,6 +33,10 @@ const inviteMemberSchema = z.object({
 
 const tokenSchema = z.object({
   token: z.string().min(1, "Token is required"),
+});
+
+const joinTokenSchema = z.object({
+  joinToken: z.string().min(1, "Join token is required"),
 });
 
 const workspaceSchema = z.object({
@@ -83,4 +88,5 @@ export {
   taskSchema,
   inviteMemberSchema,
   tokenSchema,
+  joinTokenSchema,
 };

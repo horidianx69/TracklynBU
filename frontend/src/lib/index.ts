@@ -10,6 +10,12 @@ export const publicRoutes = [
   "*",
 ];
 
+export const isPublicRoute = (pathname: string) => {
+  if (publicRoutes.includes(pathname)) return true;
+  if (pathname.startsWith("/workspace-invite/")) return true;
+  return false;
+};
+
 export const getTaskStatusColor = (status: ProjectStatus) => {
   switch (status) {
     case "In Progress":

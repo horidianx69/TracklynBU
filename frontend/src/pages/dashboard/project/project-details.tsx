@@ -8,9 +8,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { UseProjectQuery } from "@/hooks/use-project";
 import { getProjectProgress } from "@/lib";
 import type { Project, Task, TaskStatus } from "@/types";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useNavigate, useParams } from "react-router";
 import { TaskColumn } from "./components/TaskColumn";
+import { ScoreboardDialog } from "@/pages/dashboard/project/components/ScoreboardDialog";
+import { SmartGradeDialog } from "@/components/task/smart-grade-dialog";
+import { Sparkles, Plus } from "lucide-react";
 import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors, type DragEndEvent, type DragStartEvent } from "@dnd-kit/core";
 import { TaskCard } from "./components/TaskCard";
 import { useUpdateTaskStatusMutation } from "@/hooks/use-task";
@@ -28,6 +31,8 @@ const ProjectDetails = () => {
   const { mutate } = useUpdateTaskStatusMutation();
 
   const [isCreateTask, setIsCreateTask] = useState(false);
+  const [isScoreboardOpen, setIsScoreboardOpen] = useState(false);
+  const [isSmartGradeOpen, setIsSmartGradeOpen] = useState(false);
   const [activeTask, setActiveTask] = useState<Task | null>(null);
 
   // Configure drag activation - requires 8px movement before drag starts
@@ -47,6 +52,26 @@ const ProjectDetails = () => {
     isLoading: boolean;
   };
 
+  const { user } = useAuth();
+
+  // Compute student scores from live task data (names + correct marks values)
+  const computedStudentScores = useMemo(() => {
+    if (!data?.tasks) return [];
+    const scoresMap: Record<string, { student: any; totalMarks: number }> = {};
+    data.tasks.forEach((task) => {
+      if (task.marks != null && task.marks > 0 && task.isEvaluated && task.assignees) {
+        task.assignees.forEach((assignee) => {
+          const id = typeof assignee === "string" ? assignee : assignee._id;
+          if (!scoresMap[id]) {
+            scoresMap[id] = { student: assignee, totalMarks: 0 };
+          }
+          scoresMap[id].totalMarks += task.marks || 0;
+        });
+      }
+    });
+    return Object.values(scoresMap);
+  }, [data?.tasks]);
+
   if (isLoading)
     return (
       <div>
@@ -57,9 +82,18 @@ const ProjectDetails = () => {
   const { project, tasks } = data;
   const projectProgress = getProjectProgress(tasks);
 
-  const { user } = useAuth();
-  const currentUser = project.members.find((member) => member.user._id === user?._id)
-  const currentUserRole = currentUser?.role
+  // Check if all tasks are fully graded
+  const allTasksScored = tasks.length > 0 && tasks.every((t) => t.isEvaluated);
+  const isFullyGraded = project.isFullyGraded || allTasksScored;
+
+  const currentUser = project.members.find((member) => 
+    (typeof member.user === "string" ? member.user : member.user._id) === user?._id
+  );
+  
+  const currentUserRole = currentUser?.role;
+
+  // Note: We use the system user role since project roles might not accurately reflect Global Faculty status
+  const isFaculty = user?.role === "faculty" || user?.role === "admin";
 
 
   const handleTaskClick = (taskId: string) => {
@@ -67,10 +101,11 @@ const ProjectDetails = () => {
   };
 
   const handleDragStart = (event: DragStartEvent) => {
-    // Only allow managers to drag tasks
-    if (currentUserRole !== "manager") return;
-    
     const task = tasks.find((t) => t._id === event.active.id);
+    
+    // Check if task is evaluated and user is not a manager
+    if (!project || (task?.isEvaluated && currentUserRole !== "manager")) return;
+    
     setActiveTask(task || null);
   };
 
@@ -78,14 +113,14 @@ const ProjectDetails = () => {
     const { active, over } = event;
     setActiveTask(null);
 
-    // Only allow managers to drop tasks
-    if (currentUserRole !== "manager") return;
-
     if (!over) return;
 
     const taskId = active.id as string;
     const newStatus = over.id as TaskStatus;
     const task = tasks.find((t) => t._id === taskId);
+    
+    // Check if task is evaluated and user is not a manager
+    if (!task || (task.isEvaluated && currentUserRole !== "manager")) return;
 
     if (!task || task.status === newStatus) return;
 
@@ -164,7 +199,29 @@ const ProjectDetails = () => {
             </span>
           </div>
 
-          <Button onClick={() => setIsCreateTask(true)}>Add Task</Button>
+          {isFullyGraded && (
+            <Button 
+              className="bg-gradient-to-r from-purple-600 to-blue-600 text-white hover:from-purple-700 hover:to-blue-700 border-none shadow-md font-semibold"
+              onClick={() => setIsScoreboardOpen(true)}
+            >
+              Show Results
+            </Button>
+          )}
+          {isFaculty && (
+            <>
+              <Button
+                onClick={() => setIsSmartGradeOpen(true)}
+                className="gap-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white border-0 shadow-md shadow-amber-500/20"
+              >
+                <Sparkles className="size-4" />
+                Smart Grade
+              </Button>
+              <Button onClick={() => setIsCreateTask(true)} className="gap-2">
+                <Plus className="size-4" />
+                Add Task
+              </Button>
+            </>
+          )}
         </div>
       </div>
 
@@ -264,6 +321,19 @@ const ProjectDetails = () => {
           onOpenChange={setIsCreateTask}
           projectId={projectId!}
           projectMembers={project.members as any}
+        />
+
+        {/* scoreboard dialog */}
+        <ScoreboardDialog 
+          open={isScoreboardOpen} 
+          onOpenChange={setIsScoreboardOpen} 
+          studentScores={computedStudentScores} 
+        />
+        
+        <SmartGradeDialog
+          open={isSmartGradeOpen}
+          onOpenChange={setIsSmartGradeOpen}
+          project={project}
         />
       </div>
 

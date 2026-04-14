@@ -1,6 +1,7 @@
-import { Route, Routes, Outlet } from "react-router-dom"; // Added Outlet
+import { Route, Routes, Outlet, Navigate } from "react-router-dom";
 import Navbar from "./components/Navbar";
 import { Toaster } from "sonner";
+import { Loader } from "./components/loader";
 
 // Auth Layout + Pages
 import AuthLayout from "./pages/auth/auth-layout";
@@ -25,6 +26,8 @@ import Members from "./pages/dashboard/members";
 import WorkspaceInvite from "./pages/dashboard/workspaces/workspace-invite";
 import UserLayout from "./pages/user/user-layout";
 import Profile from "./pages/user/profile";
+import FacultyRequests from "./pages/dashboard/admin/faculty-requests";
+import { useAuth } from "./provider/auth-context";
 
 // 1. Create a layout component that includes the Navbar
 const MainLayout = () => (
@@ -36,49 +39,68 @@ const MainLayout = () => (
   </div>
 );
 
+// Role-based route protection component
+const RoleGate = ({ allowedRoles, children }: { allowedRoles: string[], children: React.ReactNode }) => {
+  const { user, isAuthenticated, isLoading } = useAuth();
+
+  if (isLoading) return <Loader />;
+  if (!isAuthenticated) return <Navigate to="/sign-in" />;
+  if (!user || !allowedRoles.includes(user.role)) {
+    return <Navigate to="/dashboard" />;
+  }
+
+  return <>{children}</>;
+};
+
 function App() {
   return (
     <>
-      {/* Move Toaster outside so it works everywhere */}
       <Toaster /> 
       
       <Routes>
-        {/* --- GROUP 1: LANDING PAGE (Full Screen, No App Navbar) --- */}
+        {/* --- GROUP 1: LANDING PAGE --- */}
         <Route path="/" element={<Home />} />
 
         {/* --- GROUP 2: PAGES WITH APP NAVBAR --- */}
         <Route element={<MainLayout />}>
-          
-            {/* AUTH ROUTES (Now wrapped in AuthLayout INSIDE MainLayout) */}
-            <Route element={<AuthLayout />}>
-              <Route path="sign-in" element={<SignIn />} />
-              <Route path="sign-up" element={<SignUp />} />
-              <Route path="forgot-password" element={<ForgotPassword />} />
-              <Route path="reset-password" element={<ResetPassword />} />
-              <Route path="verify-email" element={<VerifyEmail />} />
-            </Route>
+          <Route element={<AuthLayout />}>
+            <Route path="sign-in" element={<SignIn />} />
+            <Route path="sign-up" element={<SignUp />} />
+            <Route path="forgot-password" element={<ForgotPassword />} />
+            <Route path="reset-password" element={<ResetPassword />} />
+            <Route path="verify-email" element={<VerifyEmail />} />
+          </Route>
 
-            {/* USER ROUTES */}
-            <Route element={<UserLayout />}>
-              <Route path="user/profile" element={<Profile />} />
-            </Route>
-            
-            {/* STANDALONE ROUTE */}
-            <Route path="workspace-invite/:workspaceId" element={<WorkspaceInvite />} />
-            
-            {/* NOT FOUND */}
-            <Route path="*" element={<h2 className="text-center mt-10">404 - Page Not Found</h2>} />
+          <Route element={<UserLayout />}>
+            <Route path="user/profile" element={<Profile />} />
+          </Route>
+          
+          <Route path="workspace-invite/:workspaceId" element={<WorkspaceInvite />} />
+          <Route path="*" element={<h2 className="text-center mt-10">404 - Page Not Found</h2>} />
         </Route>
 
-        {/* --- GROUP 3: DASHBOARD (Has its own Sidebar/Layout) --- */}
+        {/* --- GROUP 3: DASHBOARD --- */}
         <Route element={<DashboardLayout />}>
             <Route path="dashboard" element={<Dashboard />} />
             <Route path="workspaces" element={<Workspaces />} />
             <Route path="workspaces/:workspaceId" element={<WorkspaceDetails />} />
             <Route path="workspaces/:workspaceId/projects/:projectId" element={<ProjectDetails />} />
             <Route path="workspaces/:workspaceId/projects/:projectId/tasks/:taskId" element={<TaskDetails />} />
+            
+            {/* Protected Routes */}
             <Route path="my-tasks" element={<MyTasks />} />
-            <Route path="members" element={<Members />} />
+            
+            <Route path="members" element={
+              <RoleGate allowedRoles={["admin", "faculty"]}>
+                <Members />
+              </RoleGate>
+            } />
+
+            <Route path="admin/faculty-requests" element={
+              <RoleGate allowedRoles={["admin"]}>
+                <FacultyRequests />
+              </RoleGate>
+            } />
         </Route>
 
       </Routes>

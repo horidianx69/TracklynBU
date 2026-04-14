@@ -44,19 +44,21 @@ export const WorkspaceHeader = ({
           </div>
 
           <div className="flex items-center gap-3 justify-between md:justify-start mb-4 md:mb-0">
-            {currentMember?.role == 'owner' && (<>
-              <Button variant={"destructive"} onClick={onProjectRequests}>
-              Project Requests
-              </Button>
-              <Button variant={"outline"} onClick={onInviteMember}>
-                <UserPlus className="size-4 mr-2" />
-                Invite
-              </Button>
-            </>)}
+            {(currentMember?.role === 'owner' || user?.role === 'faculty' || user?.role === 'admin') && (
+              <>
+                <Button variant={"destructive"} onClick={onProjectRequests}>
+                  Project Requests
+                </Button>
+                <Button variant={"outline"} onClick={onInviteMember}>
+                  <UserPlus className="size-4 mr-2" />
+                  Invite
+                </Button>
+              </>
+            )}
             {/* if the current user is already a member and already part of a project dont allow them to create a new project */}
             <Button onClick={onCreateProject}>
               <Plus className="size-4 mr-2" />
-              Create Project
+              {user?.role === "student" ? "Request Project" : "Create Project"}
             </Button>
           </div>
         </div>

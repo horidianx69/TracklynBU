@@ -9,6 +9,7 @@ import {
   getProjectTasks,
   approveProject,
   rejectProject,
+  updateProjectRubric,
 } from "../controllers/project.js";
 
 const router = express.Router();
@@ -57,6 +58,16 @@ router.delete(
     params: z.object({ projectId: z.string() }),
   }),
   rejectProject
+);
+
+router.put(
+  "/:projectId/rubric",
+  authMiddleware,
+  validateRequest({
+    params: z.object({ projectId: z.string() }),
+    body: z.object({ gradingRubric: z.string() }),
+  }),
+  updateProjectRubric
 );
 
 export default router;

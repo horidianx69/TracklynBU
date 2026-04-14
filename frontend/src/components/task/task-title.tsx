@@ -4,18 +4,26 @@ import { Button } from "../ui/button";
 import { Edit } from "lucide-react";
 import { useUpdateTaskTitleMutation } from "@/hooks/use-task";
 import { toast } from "sonner";
+import { useAuth } from "@/provider/auth-context";
 
 export const TaskTitle = ({
   title,
   taskId,
+  isEvaluated,
 }: {
   title: string;
   taskId: string;
+  isEvaluated: boolean;
 }) => {
+  const { user } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [newTitle, setNewTitle] = useState(title);
   const { mutate, isPending } = useUpdateTaskTitleMutation();
+
+  const isDisabled = isPending || (isEvaluated && user?.role === "student");
+
   const updateTitle = () => {
+    if (isDisabled) return;
     mutate(
       { taskId, title: newTitle },
       {
@@ -55,10 +63,12 @@ export const TaskTitle = ({
           Save
         </Button>
       ) : (
-        <Edit
-          className="size-3 cursor-pointer"
-          onClick={() => setIsEditing(true)}
-        />
+        !isDisabled && (
+          <Edit
+            className="size-3 cursor-pointer"
+            onClick={() => setIsEditing(true)}
+          />
+        )
       )}
     </div>
   );

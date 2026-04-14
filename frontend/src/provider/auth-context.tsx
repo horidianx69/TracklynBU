@@ -3,13 +3,13 @@ import type { User } from "@/types";
 import { createContext, useContext, useEffect, useState } from "react";
 import { queryClient } from "./react-query-provider";
 import { useLocation, useNavigate } from "react-router";
-import { publicRoutes } from "@/lib";
+import { isPublicRoute as checkPublicRoute } from "@/lib";
 
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (data: any) => Promise<void>;
+  login: (data: any, redirectPath?: string) => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -23,7 +23,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const navigate = useNavigate();
   const { pathname } = useLocation();
 
-  const isPublicRoute = publicRoutes.includes(pathname);
+  const isPublicRoute = checkPublicRoute(pathname);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -71,7 +71,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     return () => window.removeEventListener("force-logout", handleLogout);
   }, []);
 
-  const login = async (data: any) => {
+  const login = async (data: any, redirectPath?: string) => {
     localStorage.setItem("token", data.token);
     localStorage.setItem("user", JSON.stringify(data.user));
     setUser(data.user);
@@ -79,6 +79,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     if (!data.user.isEmailVerified) {
       navigate("/verify-email");
+    } else if (redirectPath) {
+      navigate(redirectPath);
     } else {
       navigate("/dashboard");
     }

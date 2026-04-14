@@ -20,9 +20,10 @@ const sendVerificationEmail = async (email, token) => {
 
 const registerUser = async (req, res) => {
   try {
-    const { email, name, password } = req.body;
+    const { email, name, password, role } = req.body;
 
-    // ✅ Removed Arcjet — no more false positives blocking real users
+    // Never allow admin to be created via registration
+    const userRole = role === "faculty" ? "faculty" : "student";
 
     const existingUser = await User.findOne({ email });
     if (existingUser) {
@@ -32,7 +33,13 @@ const registerUser = async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     const hashPassword = await bcrypt.hash(password, salt);
 
-    const newUser = await User.create({ email, password: hashPassword, name });
+    const newUser = await User.create({
+      email,
+      password: hashPassword,
+      name,
+      role: userRole,
+      isApproved: userRole === "student", // faculty needs admin approval
+    });
 
     const token = createVerificationToken(newUser._id, "email-verification", "1h");
 
@@ -47,10 +54,12 @@ const registerUser = async (req, res) => {
       return res.status(500).json({ message: "Failed to send verification email" });
     }
 
-    return res.status(201).json({
-      message:
-        "Verification email sent to your email. Please check and verify your account.",
-    });
+    const message =
+      userRole === "faculty"
+        ? "Verification email sent. After verifying your email, your account will need admin approval before you can log in."
+        : "Verification email sent to your email. Please check and verify your account.";
+
+    return res.status(201).json({ message });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: "Internal server error" });
@@ -109,6 +118,13 @@ const loginUser = async (req, res) => {
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
       return res.status(400).json({ message: "Invalid email or password" });
+    }
+
+    // Check if faculty account is approved by admin
+    if (user.role === "faculty" && !user.isApproved) {
+      return res.status(403).json({
+        message: "Your faculty account is pending admin approval. You will be notified once approved.",
+      });
     }
 
     const token = jwt.sign(

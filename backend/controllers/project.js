@@ -28,6 +28,14 @@ const createProject = async (req, res) => {
 
     const tagArray = tags ? tags.split(",") : [];
 
+    // Phase 4.1: Fix isApproved bypass for students
+    let projectIsApproved = isApproved || false;
+    if (req.user.role === "student") {
+      projectIsApproved = false; // Students can ONLY request projects
+    } else if (req.user.role === "faculty" || req.user.role === "admin") {
+      projectIsApproved = true; // Faculty/admin projects are auto-approved
+    }
+
     const newProject = await Project.create({
       title,
       description,
@@ -36,9 +44,9 @@ const createProject = async (req, res) => {
       dueDate,
       tags: tagArray,
       workspace: workspaceId,
-      members,
+      members: members || [],
       createdBy: req.user._id,
-      isApproved: isApproved || false,
+      isApproved: projectIsApproved,
     });
 
     workspace.projects.push(newProject._id);
@@ -225,4 +233,26 @@ const rejectProject = async (req, res) => {
   }
 };
 
-export { createProject, getProjectDetails, getProjectTasks, approveProject, rejectProject };
+const updateProjectRubric = async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const { gradingRubric } = req.body;
+
+    const project = await Project.findById(projectId);
+    if (!project) return res.status(404).json({ message: "Project not found" });
+
+    if (req.user.role !== "faculty" && req.user.role !== "admin") {
+      return res.status(403).json({ message: "Only faculty can update rubric" });
+    }
+
+    project.gradingRubric = gradingRubric || "";
+    await project.save();
+
+    res.status(200).json({ message: "Rubric updated successfully", project });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+export { createProject, getProjectDetails, getProjectTasks, approveProject, rejectProject, updateProjectRubric };

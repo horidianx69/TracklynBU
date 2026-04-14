@@ -32,8 +32,8 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
 import { Button } from "../ui/button";
 
-import { format } from "date-fns";
-import { CalendarIcon } from "lucide-react";
+import { addDays, format, startOfToday } from "date-fns";
+import { CalendarIcon, ChevronRight } from "lucide-react";
 import { Calendar } from "../ui/calendar";
 import { Checkbox } from "../ui/checkbox";
 import { UseCreateProject } from "@/hooks/use-project";
@@ -137,7 +137,7 @@ export const CreateProjectDialog = ({
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[540px]">
         <DialogHeader>
-          <DialogTitle>Create Project</DialogTitle>
+          <DialogTitle>{user?.role === "student" ? "Request Project" : "Create Project"}</DialogTitle>
           <DialogDescription>
             Create a new project to get started
           </DialogDescription>
@@ -214,29 +214,77 @@ export const CreateProjectDialog = ({
                           <Button
                             variant={"outline"}
                             className={
-                              "w-full justify-start text-left font-normal" +
+                              "w-full justify-between text-left font-normal pl-3 h-11 border-muted-foreground/20 hover:border-primary transition-all " +
                               (!field.value ? "text-muted-foreground" : "")
                             }
                           >
-                            <CalendarIcon className="size-4 mr-2" />
-                            {field.value ? (
-                              format(new Date(field.value), "PPPP")
-                            ) : (
-                              <span>Pick a date</span>
-                            )}
+                            <div className="flex items-center">
+                              <CalendarIcon className="size-4 mr-2 text-primary/70" />
+                              {field.value ? (
+                                format(new Date(field.value), "PPP")
+                              ) : (
+                                <span>Select a date</span>
+                              )}
+                            </div>
+                            <ChevronRight className="size-4 opacity-50" />
                           </Button>
                         </PopoverTrigger>
 
-                        <PopoverContent>
-                          <Calendar
-                            mode="single"
-                            selected={
-                              field.value ? new Date(field.value) : undefined
-                            }
-                            onSelect={(date) => {
-                              field.onChange(date?.toISOString() || undefined);
-                            }}
-                          />
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <div className="flex flex-col sm:flex-row h-full">
+                            <div className="flex flex-col gap-2 p-3 border-b sm:border-b-0 sm:border-r bg-muted/20">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="justify-start font-normal"
+                                onClick={() => {
+                                  field.onChange(startOfToday().toISOString());
+                                }}
+                              >
+                                Today
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="justify-start font-normal"
+                                onClick={() => {
+                                  field.onChange(
+                                    addDays(startOfToday(), 1).toISOString()
+                                  );
+                                }}
+                              >
+                                Tomorrow
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="justify-start font-normal"
+                                onClick={() => {
+                                  field.onChange(
+                                    addDays(startOfToday(), 7).toISOString()
+                                  );
+                                }}
+                              >
+                                Next Week
+                              </Button>
+                            </div>
+                            <div className="p-1">
+                              <Calendar
+                                mode="single"
+                                selected={
+                                  field.value
+                                    ? new Date(field.value)
+                                    : undefined
+                                }
+                                onSelect={(date) => {
+                                  field.onChange(
+                                    date?.toISOString() || undefined
+                                  );
+                                }}
+                                initialFocus
+                              />
+                            </div>
+                          </div>
                         </PopoverContent>
                       </Popover>
                     </FormControl>
@@ -256,29 +304,77 @@ export const CreateProjectDialog = ({
                           <Button
                             variant={"outline"}
                             className={
-                              "w-full justify-start text-left font-normal" +
+                              "w-full justify-between text-left font-normal pl-3 h-11 border-muted-foreground/20 hover:border-primary transition-all " +
                               (!field.value ? "text-muted-foreground" : "")
                             }
                           >
-                            <CalendarIcon className="size-4 mr-2" />
-                            {field.value ? (
-                              format(new Date(field.value), "PPPP")
-                            ) : (
-                              <span>Pick a date</span>
-                            )}
+                            <div className="flex items-center">
+                              <CalendarIcon className="size-4 mr-2 text-primary/70" />
+                              {field.value ? (
+                                format(new Date(field.value), "PPP")
+                              ) : (
+                                <span>Select a date</span>
+                              )}
+                            </div>
+                            <ChevronRight className="size-4 opacity-50" />
                           </Button>
                         </PopoverTrigger>
 
-                        <PopoverContent>
-                          <Calendar
-                            mode="single"
-                            selected={
-                              field.value ? new Date(field.value) : undefined
-                            }
-                            onSelect={(date) => {
-                              field.onChange(date?.toISOString() || undefined);
-                            }}
-                          />
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <div className="flex flex-col sm:flex-row h-full">
+                            <div className="flex flex-col gap-2 p-3 border-b sm:border-b-0 sm:border-r bg-muted/20">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="justify-start font-normal"
+                                onClick={() => {
+                                  field.onChange(startOfToday().toISOString());
+                                }}
+                              >
+                                Today
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="justify-start font-normal"
+                                onClick={() => {
+                                  field.onChange(
+                                    addDays(startOfToday(), 1).toISOString()
+                                  );
+                                }}
+                              >
+                                Tomorrow
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="justify-start font-normal"
+                                onClick={() => {
+                                  field.onChange(
+                                    addDays(startOfToday(), 7).toISOString()
+                                  );
+                                }}
+                              >
+                                Next Week
+                              </Button>
+                            </div>
+                            <div className="p-1">
+                              <Calendar
+                                mode="single"
+                                selected={
+                                  field.value
+                                    ? new Date(field.value)
+                                    : undefined
+                                }
+                                onSelect={(date) => {
+                                  field.onChange(
+                                    date?.toISOString() || undefined
+                                  );
+                                }}
+                                initialFocus
+                              />
+                            </div>
+                          </div>
                         </PopoverContent>
                       </Popover>
                     </FormControl>
@@ -402,7 +498,7 @@ export const CreateProjectDialog = ({
 
             <DialogFooter>
               <Button type="submit" disabled={isPending}>
-                {isPending ? "Creating..." : "Create Project"}
+                {isPending ? (user?.role === "student" ? "Requesting..." : "Creating...") : (user?.role === "student" ? "Request Project" : "Create Project")}
               </Button>
             </DialogFooter>
           </form>

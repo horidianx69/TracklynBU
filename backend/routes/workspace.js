@@ -4,14 +4,19 @@ import {
   acceptGenerateInvite,
   acceptInviteByToken,
   createWorkspace,
+  generateJoinToken,
   getWorkspaceDetails,
+  getWorkspaceInviteInfo,
   getWorkspaceProjects,
   getWorkspaces,
   getWorkspaceStats,
   inviteUserToWorkspace,
+  getWorkspaceLeaderboard,
+  getStudentProgress,
 } from "../controllers/workspace.js";
 import {
   inviteMemberSchema,
+  joinTokenSchema,
   tokenSchema,
   workspaceSchema,
 } from "../libs/validate-schema.js";
@@ -45,16 +50,29 @@ router.post(
 );
 
 router.post(
-  "/:workspaceId/accept-generate-invite",
+  "/:workspaceId/generate-join-token",
   authMiddleware,
   validateRequest({ params: z.object({ workspaceId: z.string() }) }),
+  generateJoinToken
+);
+
+router.post(
+  "/:workspaceId/accept-generate-invite",
+  authMiddleware,
+  validateRequest({
+    params: z.object({ workspaceId: z.string() }),
+    body: joinTokenSchema,
+  }),
   acceptGenerateInvite
 );
 
 router.get("/", authMiddleware, getWorkspaces);
+router.get("/student-progress/search", authMiddleware, getStudentProgress);
 
 router.get("/:workspaceId", authMiddleware, getWorkspaceDetails);
+router.get("/:workspaceId/invite-info", getWorkspaceInviteInfo);
 router.get("/:workspaceId/projects", authMiddleware, getWorkspaceProjects);
 router.get("/:workspaceId/stats", authMiddleware, getWorkspaceStats);
+router.get("/:workspaceId/leaderboard", authMiddleware, getWorkspaceLeaderboard);
 
 export default router;

@@ -70,3 +70,20 @@ export const useRejectProjectMutation = () => {
     },
   });
 };
+
+export const useUpdateProjectRubricMutation = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: { projectId: string; gradingRubric: string }) => {
+      return updateData(`/projects/${data.projectId}/rubric`, {
+        gradingRubric: data.gradingRubric,
+      });
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: ["project", variables.projectId],
+      });
+    },
+  });
+};
